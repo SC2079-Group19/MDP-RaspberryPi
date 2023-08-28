@@ -9,17 +9,18 @@ class BluetoothServer:
 
     def Initialize(self):
         try:
-            os.system("hciconfig hci0 piscan")
+            os.system("sudo hciconfig hci0 piscan")
             self.svr_socket = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
             self.svr_socket.bind(("", bluetooth.PORT_ANY))
             self.svr_socket.listen(1)
 
             port = self.svr_socket.getsockname()[1]
-            bluetooth.advertise_service(self.svr_socket, "RPi-Grp28", service_id=ServiceUUID,
+            bluetooth.advertise_service(self.svr_socket, "rpi-Grp19", service_id=ServiceUUID,
                                         service_classes=[ServiceUUID, bluetooth.SERIAL_PORT_CLASS],
                                         profiles=[bluetooth.SERIAL_PORT_PROFILE])
             
             print(f"Waiting for bluetooth connection on RFCOMM CHANNEL {port}...")
             self.client_socket, client_info = self.svr_socket.accept()
+            print(f"Accepted connection from {client_info}")
         except Exception as e:
             print(f"Error in bluetooth link connection: {e}")

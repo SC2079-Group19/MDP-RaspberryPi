@@ -1,5 +1,16 @@
+from Modules.android import AndroidLink
+from Modules.CameraModule import CameraModule
+
 def InitializeCamera():
-    pass
+    cm = CameraModule()
+    return cm
+
+def InitializeAndroid():
+    android_link = AndroidLink()
+    android_link.connect()
+    return android_link
+
 
 if __name__ == "__main__":
-    InitializeCamera()
+    camera = InitializeCamera()
+    android_link = InitializeAndroid()

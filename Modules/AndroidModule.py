@@ -1,5 +1,6 @@
 import bluetooth as bt
 import json
+import logging
 import os
 import socket
 
@@ -28,7 +29,7 @@ class AndroidModule:
         self.server_sock = None
 
     def connect(self):
-        print("Bluetooth connection started")
+        logging.info("Bluetooth connection started")
         try:
             os.system("sudo hciconfig hci0 piscan")
 
@@ -43,12 +44,12 @@ class AndroidModule:
                                 service_classes=[uuid, bt.SERIAL_PORT_CLASS],
                                 profiles=[bt.SERIAL_PORT_PROFILE])
            
-            print(f"Awaiting bluetooth connection on RFCOMM CHANNEL {port}")
+            logging.info(f"Awaiting bluetooth connection on RFCOMM CHANNEL {port}")
             self.client_sock, client_info = self.server_sock.accept()
-            print(f"Accepted connection from {client_info}")
+            logging.info(f"Accepted connection from {client_info}")
 
         except Exception as e:
-            print(f"Error in establishing bluetooth connection: {e}")
+            logging.warning(f"Error in establishing bluetooth connection: {e}")
             if self.server_sock is not None:
                 self.server_sock.close()
                 self.server_sock = None
@@ -58,7 +59,7 @@ class AndroidModule:
 
     def disconnect(self):
         try:
-            print("Disconnecting bluetooth link")
+            logging.info("Disconnecting bluetooth link")
             if self.server_sock is not None:
                 self.server_sock.shutdown(socket.SHUT_DOWN)
                 self.server_sock.close()
@@ -67,27 +68,29 @@ class AndroidModule:
                 self.client_sock.shutdown(socket.SHUT_DOWN)
                 self.client_sock.close()
                 self.server_sock = None
-            print("Disconnected bluetooth link")
+            logging.info("Disconnected bluetooth link")
 
         except Exception as e:
-            print(f"Error when disconnecting bluetooth link: {e}")
+            logging.warning(f"Error when disconnecting bluetooth link: {e}")
 
     def send(self, message:AndroidMessage):
         try:
             self.client_sock.send(f"{message.json}\n".encode("utf-8"))
+            logging.debug(f"Sent message to android: {message.json}")
         
         except Exception as e:
-            print(f"Error when sending message to andriod: {e}")
+            logging.warning(f"Error when sending message to andriod: {e}")
             raise e
 
     def receive(self):
         try:
             encoded_msg = self.client_sock.recv(1024)
             msg = encoded_msg.decode("utf-8")
+            logging.debug(f"Received message from android: {msg}")
             return msg
 
         except Exception as e:
-            print(f"Error when receiving message from andriod: {e}")
+            logging.warning(f"Error when receiving message from andriod: {e}")
             raise e
 
 

@@ -1,3 +1,4 @@
+import logging
 import os
 from time import sleep
 from picamera import PiCamera
@@ -11,7 +12,7 @@ class CameraModule:
         self._save_folder = "images"
         self._warmup_time = warmup_time
         
-        print(f"Camera Module initialized with {self._resolution} resolution and " + 
+        logging.info(f"Camera Module initialized with {self._resolution} resolution and " + 
                 f"{self._warmup_time}s warm up time")
 
     @property
@@ -27,6 +28,9 @@ class CameraModule:
 
         save_path = os.path.join(self._save_folder, name+".jpg")
         self._camera.capture(save_path)
+        logging.info(f"Saved image to {save_path}")
+
+        return save_path
 
 if __name__ == "__main__":
     pass

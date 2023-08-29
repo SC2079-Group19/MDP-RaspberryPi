@@ -32,6 +32,7 @@ class CameraModule:
 
         return save_path
 
+
 if __name__ == "__main__":
     pass
 

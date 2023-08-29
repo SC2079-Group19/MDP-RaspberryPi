@@ -22,7 +22,7 @@ class AndroidMessage:
     def json(self):
         return json.dumps({ "category": self._category, "value": self._value })
 
-class AndroidLink:
+class AndroidModule:
     def __init__(self):
         self.client_sock = None
         self.server_sock = None
@@ -91,3 +91,5 @@ class AndroidLink:
             raise e
 
 
+if __name__ == "__main__":
+    pass

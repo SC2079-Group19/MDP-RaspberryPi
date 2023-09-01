@@ -4,7 +4,7 @@ import logging
 import os
 import socket
 
-from config import uuid
+from config import uuid,service_name
 
 class AndroidMessage:
     def __init__(self, category:str, value:str):
@@ -39,7 +39,7 @@ class AndroidModule:
 
             port = self.server_sock.getsockname()[1]
 
-            bt.advertise_service(self.server_sock, "MDP-Group19-RPi", 
+            bt.advertise_service(self.server_sock, service_name, 
                                 service_id=uuid,
                                 service_classes=[uuid, bt.SERIAL_PORT_CLASS],
                                 profiles=[bt.SERIAL_PORT_PROFILE])

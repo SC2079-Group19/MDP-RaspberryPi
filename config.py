@@ -1,6 +1,6 @@
 # Android Configs
 uuid = "94f39d29-7d6d-437d-973b-fba39e49d4ee"
-
+service_name = "MDP-Group19-RPi"
 # Camera Configs
 resolution = (1024, 768)
 warmup_time = 2

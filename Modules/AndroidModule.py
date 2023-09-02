@@ -20,7 +20,7 @@ class AndroidMessage:
         return self._value
 
     @property
-    def json(self):
+    def json(self) -> str:
         return json.dumps({ "category": self._category, "value": self._value })
 
 class AndroidModule:

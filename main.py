@@ -181,7 +181,10 @@ class RpiModule:
                 save_path = self.camera.capture(img_name)
                 img_data = self.server.predict_image(save_path)
                 
-                self.android_msgs.put(AndroidMessage("image", f"{img_name}: {img_data['image_label']}"))
+                self.android_msgs.put(AndroidMessage("image", {
+                    "label": img_data['image_label'],
+                    "id": img_data['image_id']
+                }))
 
             elif command == "FIN":
                 self.start_movement.clear()

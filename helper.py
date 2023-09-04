@@ -17,3 +17,12 @@ class Direction(int, Enum):
 
     def __int__(self):
         return self.value
+    
+class BluetoothHeader(str, Enum):
+    ROBOT_CONTROL = 'ROBOT_CONTROL',
+    ROBOT_STATUS = 'ROBOT_STATUS',
+    ITEM_LOCATION = 'ITEM_LOCATION',
+    ROBOT_LOCATION = 'ROBOT_LOCATION'
+
+    def __int__(self):
+        return self.value

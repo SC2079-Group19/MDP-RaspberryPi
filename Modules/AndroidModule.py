@@ -21,7 +21,13 @@ class AndroidMessage:
 
     @property
     def json(self) -> str:
-        return json.dumps({ "category": self._category, "value": self._value })
+        return json.dumps({ "header": self._category, "data": self._value })
+    
+    @staticmethod
+    def from_json(json_dct):
+      msg = AndroidMessage(json_dct['header'],
+                   json_dct['data'])
+      return msg
 
 class AndroidModule:
     def __init__(self):
@@ -79,7 +85,7 @@ class AndroidModule:
             logging.debug(f"Sent message to android: {message.json}")
         
         except Exception as e:
-            logging.warning(f"Error when sending message to andriod: {e}")
+            logging.warning(f"Error when sending message to andriod: {e} : {type(e)}")
             raise e
 
     def receive(self):
@@ -90,7 +96,7 @@ class AndroidModule:
             return msg
 
         except Exception as e:
-            logging.warning(f"Error when receiving message from andriod: {e}")
+            logging.warning(f"Error when receiving message from andriod: {e} : {type(e)}")
             raise e
 
 

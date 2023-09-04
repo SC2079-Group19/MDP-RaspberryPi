@@ -31,7 +31,7 @@ class StmModule:
         logging.debug(f"Sent message to STM: {msg}")
 
     def receive(self):
-        msg = self.serial.readline().decode("utf-8")
+        msg = self.serial.readline().decode("utf-8").strip()
         logging.debug(f"Received message from STM: {msg}")
         return msg
 

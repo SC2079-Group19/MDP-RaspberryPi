@@ -7,8 +7,9 @@ import requests
 import queue
 
 from config import stm_command_prefixes, server_url, server_port
-from helper import RobotStatus, Direction, BluetoothHeader
-from Modules.AndroidModule import AndroidModule, AndroidMessage
+from helper import RobotStatus, Direction
+from Modules.AndroidModule import AndroidModule
+from Modules.AndroidMessages import AndroidMessage, InfoMessage, RobotLocMessage, ImageMessage
 from Modules.CameraModule import CameraModule
 from Modules.StmModule import StmModule
 from Modules.APIServer import APIServer
@@ -41,17 +42,9 @@ class RpiModule:
         self.handle_stm_msgs_process = None
         self.handle_commands_process = None
 
-<<<<<<< HEAD
         self.robot_location["x"] = 1
         self.robot_location["y"] = 1
         self.robot_location["d"] = 0
-=======
-        self.robot_location = {
-            "x": 1,
-            "y": 1,
-            "d": 0
-        }
->>>>>>> 2812027a3028b02e581981e7d1b9c117707d9a6b
 
     def initialize(self, StartAndroid: bool = True, StartSTM: bool = True,
                    StartCamera: bool = True, CheckSvr: bool = True):
@@ -71,47 +64,46 @@ class RpiModule:
             self.handle_stm_msgs_process = Process(target=self.handle_stm_messages)
             self.handle_commands_process = Process(target=self.handle_commands)
 
-<<<<<<< HEAD
         if StartAndroid:
             self.handle_android_msgs_process.start()
             self.send_android_msgs_process.start()
-=======
-        self.handle_android_msgs_process.start()
-        self.send_android_msgs_process.start()
->>>>>>> 2812027a3028b02e581981e7d1b9c117707d9a6b
         if StartSTM:
             self.handle_stm_msgs_process.start()
             self.handle_commands_process.start()
 
-        logging.info("Processes started")
+        logging.info("[RpiModule.initialize]Processes started")
 
         if StartAndroid:
-            self.android_msgs.put(AndroidMessage(BluetoothHeader.ROBOT_STATUS.value, 'Ready to start'))
+            self.android_msgs.put(InfoMessage('Ready to start'))
+
+    def EventLoop(self):
+        try:
+            while True:
+                pass
+        except KeyboardInterrupt:
+            self.terminate()
 
     def terminate(self):
         self.android.disconnect()
         self.stm.disconnect()
         self.clear_queues()
-        logging.info("Program terminated")
+        logging.info("[RpiModule.terminate]Program terminated")
 
     def handle_android_messages(self):
         while True:
             try:
                 msg_str = self.android.receive()
-                recv_msg = json.loads(msg_str)
+                if msg_str is not None:
+                    msg:AndroidMessage = json.loads(msg_str, object_hook=AndroidMessage.from_json)
             except OSError:
-                recv_msg = None
-                logging.warning("Android connection dropped")
+                logging.warning("[RpiModule.handle_android_messages]Android connection dropped")
 
-            if recv_msg is None:
+            if msg is None:
                 continue
-            
-            msg:AndroidMessage = json.loads(msg_str, object_hook=AndroidMessage.from_json)
-
             # add obstacles and calculate shortest path
             if msg.category == 'obstacles':
                 # reset obstacles
-                self.obstacles = []
+                self.obstacles[:] = [] #has to clear it this way as its shared object
 
                 for ob in msg.value['obstacles']:
                     self.obstacles.append({
@@ -125,7 +117,7 @@ class RpiModule:
 
             elif msg.category == 'start':
                 if self.command_queue.empty():
-                    self.android_msgs.put(AndroidMessage(BluetoothHeader.ROBOT_STATUS.value, "No obstacles set"))
+                    self.android_msgs.put(InfoMessage("No obstacles set"))
                     continue
 
                 # reset gyroscope
@@ -134,14 +126,14 @@ class RpiModule:
                 # Enable movement
                 self.start_movement.set()
 
-                self.android_msgs.put(AndroidMessage(BluetoothHeader.ROBOT_STATUS.value, RobotStatus.READY))
+                self.android_msgs.put(InfoMessage(RobotStatus.READY))
 
             # manual control
             elif msg.category == 'control':
                 try:
                     self.movement_lock.release()
                 except ValueError:
-                    logging.warning("movement lock is already released")
+                    logging.warning("[RpiModule.handle_android_messages]movement lock is already released")
 
                 self.movement_lock.acquire()
                 self.clear_queues()
@@ -160,7 +152,7 @@ class RpiModule:
                 if self.android_msgs.empty():
                     continue
                 msg:AndroidMessage = self.android_msgs.get()
-                logging.debug(f"msg:{msg}")
+                logging.debug(f"[RpiModule.send_android_messages]msg:{msg}")
                 self.android.send(msg)
             except queue.Empty:
                 continue
@@ -176,7 +168,7 @@ class RpiModule:
                 continue
 
             if not "ACK" in msg:
-                logging.warning(f"Received unknown message from STM: {msg}")
+                logging.warning(f"[RpiModule.handle_stm_messages]Received unknown message from STM: {msg}")
                 continue
 
             try:
@@ -185,7 +177,7 @@ class RpiModule:
                 self.robot_location["y"] = cur_location["y"]
                 self.robot_location["d"] = cur_location["d"]
                 
-                self.android_msgs.put(AndroidMessage(BluetoothHeader.ROBOT_LOCATION.value, self.robot_location))
+                self.android_msgs.put(RobotLocMessage(self.robot_location))
                 
             except queue.Empty:
                 continue
@@ -194,16 +186,11 @@ class RpiModule:
             except Exception as e:
                 continue
 
-<<<<<<< HEAD
-=======
-            self.android_msgs.put(AndroidMessage(BluetoothHeader.ROBOT_LOCATION.value, self.robot_location))
-    
->>>>>>> 2812027a3028b02e581981e7d1b9c117707d9a6b
     def handle_commands(self):
         while True:
             try:
                 command:str = self.command_queue.get()
-                logging.debug(f"Command: {command}")
+                logging.debug(f"[RpiModule.handle_commands]Command: {command}")
             except queue.Empty:
                 continue
             except EOFError:
@@ -214,7 +201,7 @@ class RpiModule:
             self.movement_lock.acquire()
 
             if command.startswith(stm_command_prefixes):
-                logging.info("Inside send")
+                logging.info("[RpiModule.handle_commands]Inside send")
                 self.stm.send(command)
 
             elif command.startswith("SNAP"):
@@ -223,7 +210,7 @@ class RpiModule:
                 else:
                     img_name = command[4:command.find("_")]
 
-                self.android_msgs.put(AndroidMessage(BluetoothHeader.ROBOT_STATUS.value, RobotStatus.DETECTING_IMAGE))
+                self.android_msgs.put(InfoMessage(RobotStatus.DETECTING_IMAGE))
 
                 save_path = self.camera.capture(img_name)
                 img_data = self.server.predict_image(save_path)
@@ -236,11 +223,11 @@ class RpiModule:
             elif command == "FIN":
                 self.start_movement.clear()
                 self.movement_lock.release()
-                self.android_msgs.put(AndroidMessage(BluetoothHeader.ROBOT_STATUS.value, "Commands queue finished."))
-                self.android_msgs.put(AndroidMessage(BluetoothHeader.ROBOT_STATUS.value, RobotStatus.FINISH))
+                self.android_msgs.put(InfoMessage("Commands queue finished."))
+                self.android_msgs.put(InfoMessage(RobotStatus.FINISH))
 
             else:
-                logging.warning(f"Unknown command: {command}")
+                logging.warning(f"[RpiModule.handle_commands]Unknown command: {command}")
             
             # release the lock after processing command
             self.movement_lock.release()
@@ -252,20 +239,20 @@ class RpiModule:
         try:
             status_code = self.server.server_status()
             if status_code == 200:
-                logging.info("Server is running")
+                logging.info("[RpiModule.check_server]Server is running")
                 return True
             return False
 
         except ConnectionError:
-            logging.warning("Connection error to server")
+            logging.warning("[RpiModule.check_server]Connection error to server")
             return False
 
         except requests.Timeout:
-            logging.warning("Timed out waiting for response from server")
+            logging.warning("[RpiModule.check_server]Timed out waiting for response from server")
             return False
 
         except Exception as e:
-            logging.warning(f"API error: {e}")
+            logging.warning(f"[RpiModule.check_server]API error: {e}")
             return False
 
     def check_camera(self):
@@ -278,14 +265,14 @@ class RpiModule:
             return True
         
         except Exception as e:
-            logging.warning(f"Camera error: {e}")
+            logging.warning(f"[RpiModule.check_camera]Camera error: {e}")
             return False
 
     def find_shortest_path(self, robot_pos_x=1, robot_pos_y=1, robot_dir=0, retrying=False):
         """
         Sends a request to the server to find the shortest path and associated commands
         """
-        self.android_msgs.put(AndroidMessage(BluetoothHeader.ROBOT_STATUS.value, RobotStatus.CALCULATING_PATH))
+        self.android_msgs.put(InfoMessage(RobotStatus.CALCULATING_PATH))
 
         data = {
             "obstacles": self.obstacles,
@@ -298,16 +285,16 @@ class RpiModule:
         res = requests.post(f"{server_url}:{server_port}/algo", json=data)
 
         if res.status_code != 200:
-            self.android_msgs.put(AndroidMessage(BluetoothHeader.ROBOT_STATUS.value, f"There was an error when requesting to server. Status Code: {res.status_code}"))
-            logging.warning(f"There was an error when requesting to server. Status Code: {res.status_code}")
+            self.android_msgs.put(InfoMessage(f"There was an error when requesting to server. Status Code: {res.status_code}"))
+            logging.warning(f"[RpiModule.find_shortest_path]There was an error when requesting to server. Status Code: {res.status_code}")
             return
         
         res_data = res.json()
         path_data = res_data['data']
         
         if res_data['error']:
-            self.android_msgs.put(AndroidMessage(BluetoothHeader.ROBOT_STATUS.value, f"Error when calculating shortest path: {res_data['error']}"))
-            logging.warning(f"Error when calculating shortest path: {res_data['error']}")
+            self.android_msgs.put(InfoMessage(f"Error when calculating shortest path: {res_data['error']}"))
+            logging.warning(f"[RpiModule.find_shortest_path]Error when calculating shortest path: {res_data['error']}")
             return
 
         # ignore first element as it is the starting position of the robot
@@ -317,7 +304,7 @@ class RpiModule:
         for command in path_data['commands']:
             self.command_queue.put(command)
 
-        self.android_msgs.put(AndroidMessage(BluetoothHeader.ROBOT_STATUS.value, "Retrieved shortest path from server. Robot is ready to move"))
+        self.android_msgs.put(InfoMessage("Retrieved shortest path from server. Robot is ready to move"))
 
     def translate_robot(self, command:str):
         """
@@ -430,8 +417,5 @@ class RpiModule:
 
 if __name__ == "__main__":
     rpi = RpiModule()
-<<<<<<< HEAD
     rpi.initialize(CheckSvr=False, StartCamera=False, StartAndroid=False)
-=======
-    rpi.initialize(CheckSvr=False, StartCamera=False, StartSTM=False)
->>>>>>> 2812027a3028b02e581981e7d1b9c117707d9a6b
+    rpi.EventLoop()

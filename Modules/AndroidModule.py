@@ -1,33 +1,10 @@
 import bluetooth as bt
-import json
 import logging
 import os
 import socket
 
 from config import uuid,service_name
-
-class AndroidMessage:
-    def __init__(self, category:str, value:str):
-        self._category = category
-        self._value = value
-
-    @property
-    def category(self) -> str:
-        return self._category
-
-    @property
-    def value(self) -> str:
-        return self._value
-
-    @property
-    def json(self) -> str:
-        return json.dumps({ "header": self._category, "data": self._value })
-    
-    @staticmethod
-    def from_json(json_dct):
-      msg = AndroidMessage(json_dct['header'],
-                   json_dct['data'])
-      return msg
+from Modules.AndroidMessages import AndroidMessage
 
 class AndroidModule:
     def __init__(self):
@@ -35,7 +12,7 @@ class AndroidModule:
         self.server_sock = None
 
     def connect(self):
-        logging.info("Bluetooth connection started")
+        logging.info("[AndroidModule]Bluetooth connection started")
         try:
             os.system("sudo hciconfig hci0 piscan")
 
@@ -50,9 +27,9 @@ class AndroidModule:
                                 service_classes=[uuid, bt.SERIAL_PORT_CLASS],
                                 profiles=[bt.SERIAL_PORT_PROFILE])
            
-            logging.info(f"Awaiting bluetooth connection on RFCOMM CHANNEL {port}")
+            logging.info(f"[AndroidModule]Awaiting bluetooth connection on RFCOMM CHANNEL {port}")
             self.client_sock, client_info = self.server_sock.accept()
-            logging.info(f"Accepted connection from {client_info}")
+            logging.info(f"[AndroidModule]Accepted connection from {client_info}")
 
         except Exception as e:
             logging.warning(f"Error in establishing bluetooth connection: {e}")
@@ -65,7 +42,7 @@ class AndroidModule:
 
     def disconnect(self):
         try:
-            logging.info("Disconnecting bluetooth link")
+            logging.info("[AndroidModule]Disconnecting bluetooth link")
             if self.server_sock is not None:
                 self.server_sock.shutdown(socket.SHUT_DOWN)
                 self.server_sock.close()
@@ -74,29 +51,29 @@ class AndroidModule:
                 self.client_sock.shutdown(socket.SHUT_DOWN)
                 self.client_sock.close()
                 self.server_sock = None
-            logging.info("Disconnected bluetooth link")
+            logging.info("[AndroidModule]Disconnected bluetooth link")
 
         except Exception as e:
-            logging.warning(f"Error when disconnecting bluetooth link: {e}")
+            logging.warning(f"[AndroidModule]Error when disconnecting bluetooth link: {e}")
 
     def send(self, message:AndroidMessage):
         try:
             self.client_sock.send(f"{message.json}\n".encode("utf-8"))
-            logging.debug(f"Sent message to android: {message.json}")
+            logging.debug(f"[AndroidModule]Sent message to android: {message.json}")
         
         except Exception as e:
-            logging.warning(f"Error when sending message to andriod: {e} : {type(e)}")
+            logging.warning(f"[AndroidModule]Error when sending message to andriod: {e} : {type(e)}")
             raise e
 
     def receive(self):
         try:
             encoded_msg = self.client_sock.recv(1024)
             msg = encoded_msg.decode("utf-8")
-            logging.debug(f"Received message from android: {msg}")
+            logging.debug(f"[AndroidModule]Received message from android: {msg}")
             return msg
 
         except Exception as e:
-            logging.warning(f"Error when receiving message from andriod: {e}")
+            logging.warning(f"[AndroidModule]Error when receiving message from andriod: {e}")
             raise e
 
 

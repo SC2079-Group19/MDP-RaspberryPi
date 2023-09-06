@@ -96,7 +96,7 @@ class AndroidModule:
             return msg
 
         except Exception as e:
-            logging.warning(f"Error when receiving message from andriod: {e} : {type(e)}")
+            logging.warning(f"Error when receiving message from andriod: {e}")
             raise e
 
 

@@ -41,9 +41,17 @@ class RpiModule:
         self.handle_stm_msgs_process = None
         self.handle_commands_process = None
 
+<<<<<<< HEAD
         self.robot_location["x"] = 1
         self.robot_location["y"] = 1
         self.robot_location["d"] = 0
+=======
+        self.robot_location = {
+            "x": 1,
+            "y": 1,
+            "d": 0
+        }
+>>>>>>> 2812027a3028b02e581981e7d1b9c117707d9a6b
 
     def initialize(self, StartAndroid: bool = True, StartSTM: bool = True,
                    StartCamera: bool = True, CheckSvr: bool = True):
@@ -63,9 +71,14 @@ class RpiModule:
             self.handle_stm_msgs_process = Process(target=self.handle_stm_messages)
             self.handle_commands_process = Process(target=self.handle_commands)
 
+<<<<<<< HEAD
         if StartAndroid:
             self.handle_android_msgs_process.start()
             self.send_android_msgs_process.start()
+=======
+        self.handle_android_msgs_process.start()
+        self.send_android_msgs_process.start()
+>>>>>>> 2812027a3028b02e581981e7d1b9c117707d9a6b
         if StartSTM:
             self.handle_stm_msgs_process.start()
             self.handle_commands_process.start()
@@ -181,6 +194,11 @@ class RpiModule:
             except Exception as e:
                 continue
 
+<<<<<<< HEAD
+=======
+            self.android_msgs.put(AndroidMessage(BluetoothHeader.ROBOT_LOCATION.value, self.robot_location))
+    
+>>>>>>> 2812027a3028b02e581981e7d1b9c117707d9a6b
     def handle_commands(self):
         while True:
             try:
@@ -412,4 +430,8 @@ class RpiModule:
 
 if __name__ == "__main__":
     rpi = RpiModule()
+<<<<<<< HEAD
     rpi.initialize(CheckSvr=False, StartCamera=False, StartAndroid=False)
+=======
+    rpi.initialize(CheckSvr=False, StartCamera=False, StartSTM=False)
+>>>>>>> 2812027a3028b02e581981e7d1b9c117707d9a6b

@@ -27,12 +27,14 @@ class StmModule:
             logging.warning(f"[StmModule]Error when disconnecting from STM: {e}")
 
     def send(self, msg:str):
-        self.serial.write(msg.encode("utf-8"))
-        logging.debug(f"[StmModule]Sent message to STM: {msg}")
+        raw_byte = (msg + ' ').encode("utf-8")
+        self.serial.write(raw_byte)
+        logging.debug(f"[StmModule]Sent message to STM: {msg} : {raw_byte}")
 
     def receive(self):
         msg = self.serial.readline().decode("utf-8")
-        logging.debug(f"[StmModule]Received message from STM: {msg}")
+        if len(msg) > 0:
+            logging.debug(f"[StmModule]Received message from STM: {msg}")
         return msg
 
 if __name__ == "__main__":

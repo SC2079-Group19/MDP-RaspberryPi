@@ -9,11 +9,10 @@ import queue
 from config import stm_command_prefixes, server_url, server_port
 from helper import RobotStatus, Direction
 from Modules.AndroidModule import AndroidModule
-from Modules.AndroidMessages import AndroidMessage, InfoMessage, RobotLocMessage, ImageMessage
+from Modules.AndroidMessages import AndroidMessage, InfoMessage, RobotLocMessage, ImageMessage, BluetoothHeader
 from Modules.CameraModule import CameraModule
 from Modules.StmModule import StmModule
 from Modules.APIServer import APIServer
-
 
 class RpiModule:
     def __init__(self):
@@ -28,6 +27,7 @@ class RpiModule:
 
         self.path_queue = Queue()
         self.android_msgs = Queue()
+        self.android_dropped_event = self._manager.Event()
         self.command_queue = Queue()
 
         self.movement_lock = Lock()
@@ -58,8 +58,7 @@ class RpiModule:
             self.check_camera()
 
         if StartAndroid:
-            self.handle_android_msgs_process = Process(target=self.handle_android_messages)
-            self.send_android_msgs_process = Process(target=self.send_android_messages)
+            self.spawn_android_processes()
         if StartSTM:
             self.handle_stm_msgs_process = Process(target=self.handle_stm_messages)
             self.handle_commands_process = Process(target=self.handle_commands)
@@ -73,13 +72,9 @@ class RpiModule:
 
         logging.info("[RpiModule.initialize]Processes started")
 
-        if StartAndroid:
-            self.android_msgs.put(InfoMessage('Ready to start'))
-
     def EventLoop(self):
         try:
-            while True:
-                pass
+            self.handle_android_drop_event()
         except KeyboardInterrupt:
             self.terminate()
 
@@ -97,11 +92,14 @@ class RpiModule:
                     msg:AndroidMessage = json.loads(msg_str, object_hook=AndroidMessage.from_json)
             except OSError:
                 logging.warning("[RpiModule.handle_android_messages]Android connection dropped")
+                self.android_dropped_event.set()
+            except json.decoder.JSONDecodeError:
+                logging.warning("[RpiModule.handle_android_messages]Invalid json msg")
 
             if msg is None:
                 continue
             # add obstacles and calculate shortest path
-            if msg.category == 'obstacles':
+            if msg.category == BluetoothHeader.ITEM_LOCATION.value:
                 # reset obstacles
                 self.obstacles[:] = [] #has to clear it this way as its shared object
 
@@ -129,21 +127,23 @@ class RpiModule:
                 self.android_msgs.put(InfoMessage(RobotStatus.READY))
 
             # manual control
-            elif msg.category == 'control':
+            elif msg.category == BluetoothHeader.ROBOT_CONTROL.value:
                 try:
                     self.movement_lock.release()
                 except ValueError:
                     logging.warning("[RpiModule.handle_android_messages]movement lock is already released")
 
                 self.movement_lock.acquire()
+                self.start_movement.set()
                 self.clear_queues()
 
-                command:str = msg.value['command']
+                command:str = msg.value
                 self.command_queue.put(command)
                 self.translate_robot(command)
                 self.path_queue.put(self.robot_location)
 
                 self.movement_lock.release()
+                #self.start_movement.clear()
                       
 
     def send_android_messages(self):
@@ -157,6 +157,7 @@ class RpiModule:
             except queue.Empty:
                 continue
             except OSError:
+                self.android_dropped_event.set()
                 pass
                 #logging.warning("Android connection dropped")
 
@@ -167,8 +168,8 @@ class RpiModule:
             if msg is None:
                 continue
 
-            if not "ACK" in msg:
-                logging.warning(f"[RpiModule.handle_stm_messages]Received unknown message from STM: {msg}")
+            if not "ACK" in msg or len(msg) <= 0:
+                #logging.warning(f"[RpiModule.handle_stm_messages]Received unknown message from STM: {msg}, {type(msg)}")
                 continue
 
             try:
@@ -201,7 +202,7 @@ class RpiModule:
             self.movement_lock.acquire()
 
             if command.startswith(stm_command_prefixes):
-                logging.info("[RpiModule.handle_commands]Inside send")
+                #logging.info("[RpiModule.handle_commands]Inside send")
                 self.stm.send(command)
 
             elif command.startswith("SNAP"):
@@ -310,6 +311,9 @@ class RpiModule:
         """
         Translate the robot using the command given and updates its predicted location
         """
+        if len(command) < 4:
+            logging.debug("[translate_robot]Invalid command from android")
+            return
         if command.startswith("FW") or command.startswith("FS"):
             if self.robot_location['d'] == Direction.NORTH.value:
                 self.robot_location['y'] += int(command[2:]) // 10
@@ -415,7 +419,31 @@ class RpiModule:
         while not self.android_msgs.empty():
             self.android_msgs.get()
 
+    def spawn_android_processes(self):
+        self.handle_android_msgs_process = Process(target=self.handle_android_messages)
+        self.send_android_msgs_process = Process(target=self.send_android_messages)
+        self.android_msgs.put(InfoMessage('Ready to start'))
+
+    def handle_android_drop_event(self):
+        while True:
+            self.android_dropped_event.wait()
+            
+            logging.debug('[RpiModule.handle_android_drop_event]Killing android process')
+            self.handle_android_msgs_process.kill()
+            self.send_android_msgs_process.kill()
+
+            self.handle_android_msgs_process.join()
+            self.send_android_msgs_process.join()
+            logging.debug('[RpiModule.handle_android_drop_event]Android processes killed')
+
+            self.android.disconnect()
+            self.android.connect()
+
+            self.spawn_android_processes()
+            self.android_dropped_event.clear()
+
+
 if __name__ == "__main__":
     rpi = RpiModule()
-    rpi.initialize(CheckSvr=False, StartCamera=False, StartAndroid=False)
+    rpi.initialize(CheckSvr=False, StartCamera=False, StartAndroid=True)
     rpi.EventLoop()

@@ -40,7 +40,7 @@ class InfoMessage(AndroidMessage):
 
 class RobotLocMessage(AndroidMessage):
     def __init__(self, value: str):
-        super(RobotLocMessage, self).__init__(BluetoothHeader.ROBOT_LOCATION.value, value)
+        super(RobotLocMessage, self).__init__(BluetoothHeader.ROBOT_LOCATION.value, ''.join(value))
 
 class ImageMessage(AndroidMessage):
     def __init__(self, value: str):

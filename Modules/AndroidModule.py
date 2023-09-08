@@ -44,11 +44,11 @@ class AndroidModule:
         try:
             logging.info("[AndroidModule]Disconnecting bluetooth link")
             if self.server_sock is not None:
-                self.server_sock.shutdown(socket.SHUT_DOWN)
+                self.server_sock.shutdown(socket.SHUT_RDWR)
                 self.server_sock.close()
                 self.server_sock = None
             if self.client_sock is not None:
-                self.client_sock.shutdown(socket.SHUT_DOWN)
+                self.client_sock.shutdown(socket.SHUT_RDWR)
                 self.client_sock.close()
                 self.server_sock = None
             logging.info("[AndroidModule]Disconnected bluetooth link")

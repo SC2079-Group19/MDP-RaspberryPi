@@ -53,9 +53,15 @@ class RpiModule:
         if StartSTM:
             self.stm.connect()
         if CheckSvr:
-            self.check_server()
+            if self.check_server():
+                logging.info("Server is online")
+            else:
+                logging.warning("Server is offline")
         if StartCamera:
-            self.check_camera()
+            if self.check_camera():
+                logging.info("Camera is online")
+            else:
+                logging.warning("Camera is offline")
 
         if StartAndroid:
             self.spawn_android_processes()
@@ -445,5 +451,5 @@ class RpiModule:
 
 if __name__ == "__main__":
     rpi = RpiModule()
-    rpi.initialize(CheckSvr=False, StartCamera=False, StartAndroid=True)
+    rpi.initialize(CheckSvr=True, StartCamera=False, StartAndroid=False, StartSTM=False)
     rpi.EventLoop()

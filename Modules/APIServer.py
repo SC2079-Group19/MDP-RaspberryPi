@@ -7,7 +7,7 @@ from config import server_url, server_port
 
 class APIServer:
     def __init__(self):
-        self.url = f"{server_url}/{server_port}"
+        self.url = f"http://{server_url}:{server_port}"
     
     def server_status(self):
         res = requests.get(self.url, timeout=1)
@@ -16,7 +16,7 @@ class APIServer:
     def predict_image(self, img_path:str):
         if not os.path.exists(img_path):
             # Image does not exist in path
-            logging.warn(f"{img_path} does not exist!")
+            logging.warn(f"[APIServer]{img_path} does not exist!")
             return None
 
         img = open(img_path, 'rb')
@@ -24,7 +24,7 @@ class APIServer:
 
         res = requests.post(f"{self.url}/predict", files={"file": (img_name, img)})
         img_data = res.json()
-        logging.debug(f"Image {img_name} is predicted to be {img_data['image_label']}")
+        logging.debug(f"[APIServer]Image {img_name} is predicted to be {img_data['image_label']}")
 
         return img_data
 

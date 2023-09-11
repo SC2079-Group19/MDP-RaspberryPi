@@ -1,7 +1,7 @@
 import logging
 import serial
 
-from config import serial_port, baud_rate
+from config import serial_port, baud_rate, stm_message_len
 
 class StmModule:
     def __init__(self):
@@ -27,7 +27,11 @@ class StmModule:
             logging.warning(f"[StmModule]Error when disconnecting from STM: {e}")
 
     def send(self, msg:str):
-        raw_byte = (msg + ' ').encode("utf-8")
+        raw_byte = msg.encode("utf-8")
+        if len(raw_byte) < stm_message_len:
+            for x in range(len(raw_byte) - stm_message_len):
+                raw_byte.append(0)
+
         self.serial.write(raw_byte)
         logging.debug(f"[StmModule]Sent message to STM: {msg} : {raw_byte}")
 

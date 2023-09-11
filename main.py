@@ -1,7 +1,7 @@
 StartAndroid    = True
-StartSTM        = True
-StartCamera     = False
-CheckSvr        = False
+StartSTM        = False
+StartCamera     = True
+CheckSvr        = True
 
 import json
 import logging

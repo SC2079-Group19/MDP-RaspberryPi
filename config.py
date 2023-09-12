@@ -14,5 +14,5 @@ stm_command_prefixes = ("FS", "BS", "FW", "BW", "FL", "FR", "BL",
                         "BR", "TL", "TR", "A", "C", "DT", "STOP", "ZZ", "RS")
 
 # Image Recognition Configs
-server_url = "192.168.131.61" # to be changed
+server_url = "192.168.19.16" # to be changed
 server_port = "5000"

@@ -1,7 +1,9 @@
-StartAndroid    = True
+StartAndroid    = False
 StartSTM        = False
 StartCamera     = True
 CheckSvr        = True
+
+Testing         = False
 
 import json
 import logging
@@ -9,6 +11,7 @@ import os
 from multiprocessing import Process, Manager
 import requests
 import queue
+import time
 
 from config import stm_command_prefixes, server_url, server_port
 from helper import RobotStatus, Direction
@@ -63,15 +66,9 @@ class RpiModule:
                 logging.warning("[RpiModule.initialize]STM serial connection failed!")
                 return False
         if CheckSvr:
-            if self.check_server():
-                logging.info("Server is online")
-            else:
-                logging.warning("Server is offline")
+            self.check_server()
         if StartCamera:
-            if self.check_camera():
-                logging.info("Camera is online")
-            else:
-                logging.warning("Camera is offline")
+            self.check_camera()
 
         if StartAndroid:
             self.spawn_android_processes()
@@ -80,6 +77,14 @@ class RpiModule:
             self.handle_commands_process = Process(target=self.handle_commands)
             self.handle_stm_msgs_process.start()
             self.handle_commands_process.start()
+
+        if Testing:
+            self.command_queue.put("SNAP1")
+            self.command_queue.put("SNAP2")
+            self.handle_commands_process = Process(target=self.handle_commands)
+            self.handle_commands_process.start()
+            self.start_movement.set()
+            logging.info("[RpiModule.initialize]Testing Mode Started")
 
         logging.info("[RpiModule.initialize]Processes started")
         return True
@@ -107,6 +112,7 @@ class RpiModule:
             self.stm.disconnect()
             self.handle_stm_msgs_process.join()
             self.handle_commands_process.join()
+
         logging.info("[RpiModule.terminate]Processes joined")
         logging.info("[RpiModule.terminate]Program terminated")
 
@@ -234,12 +240,15 @@ class RpiModule:
                 if command.find("_") == -1:
                     img_name = command[4:]
                 else:
-                    img_name = command[4:command.find("_")]
+                    img_name = command[4:command.find("_")] + "_" + command[command.find('_')+1:]
 
                 self.android_msgs.put(InfoMessage(RobotStatus.DETECTING_IMAGE))
 
+                img_name = f"{time.time()}_{img_name}"
                 save_path = self.camera.capture(img_name)
                 img_data = self.server.predict_image(save_path)
+
+                logging.info(f"[RpiModule.predict_image]Image data: {img_data}")
                 
                 self.android_msgs.put(AndroidMessage("image", {
                     "label": img_data['image_label'],
@@ -288,6 +297,7 @@ class RpiModule:
         try:
             save_path = self.camera.capture("test")
             os.remove(save_path)
+            logging.info("[RpiModule.check_camera]Camera is running")
             return True
         
         except Exception as e:

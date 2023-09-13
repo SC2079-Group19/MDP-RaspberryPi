@@ -251,8 +251,8 @@ class RpiModule:
                 logging.info(f"[RpiModule.predict_image]Image data: {img_data}")
                 
                 self.android_msgs.put(AndroidMessage("image", {
-                    "label": img_data['image_label'],
-                    "id": img_data['image_id']
+                    "label": img_data['image_id'],
+                    "id": img_data['obstacle_id']
                 }))
 
             elif command == "FIN":

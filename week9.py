@@ -159,40 +159,40 @@ class RpiModule:
                     img_data = self.server.predict_image(save_path)
 
                     if img_data["image_label"] == "Left":
-                        self.issue_command("FL00") # ack_count = 3
-                        self.issue_command("FR00") # ack_count = 4
-                        self.issue_command("FW10") # ack_count = 5
+                        self.command_queue.put("FL00") # ack_count = 3
+                        self.command_queue.put("FR00") # ack_count = 4
+                        self.command_queue.put("FW10") # ack_count = 5
                     # By default, go right
                     else:
-                        self.issue_command("FR00") # ack_count = 3
-                        self.issue_command("FL00") # ack_count = 4
-                        self.issue_command("FW10") # ack_count = 5
+                        self.command_queue.put("FR00") # ack_count = 3
+                        self.command_queue.put("FL00") # ack_count = 4
+                        self.command_queue.put("FW10") # ack_count = 5
 
                     self.near_flag.clear() # resets the near_flag
 
+            if self.ack_count == 5:  # Robot crossed first obstacle
+                img_name = f"{time.time()}_second_far"
+                save_path = self.camera.capture(img_name)
+                img_data = self.server.predict_image(save_path)
+
+                # To move until obstacle is reached
+                # placeholder for command to keep moving until obstacle
+                self.command_queue.put("FW00") # ack_count = 6
+
+                if img_data["image_label"] == "Left":
+                    self.command_queue.put("FL00") # ack_count = 7
+                    self.command_queue.put("FW30") # ack_count = 8
+                    self.command_queue.put("FR00") # ack_count = 9
+                    self.command_queue.put("FW10") # ack_count = 10
+                    self.second_direction = img_data["image_label"]
+                elif img_data["image_label"] == "Right":
+                    self.command_queue.put("FR00") # ack_count = 7
+                    self.command_queue.put("FW30") # ack_count = 8
+                    self.command_queue.put("FL00") # ack_count = 9
+                    self.command_queue.put("FW10") # ack_count = 10
+                    self.second_direction = img_data["image_label"]
                 else:
-                    img_name = f"{time.time()}_second_far"
-                    save_path = self.camera.capture(img_name)
-                    img_data = self.server.predict_image(save_path)
-
-                    # To move until obstacle is reached
-                    # placeholder for command to keep moving until obstacle
-                    self.issue_command("FW00") # ack_count = 6
-
-                    if img_data["image_label"] == "Left":
-                        self.issue_command("FL00") # ack_count = 7
-                        self.issue_command("FR00") # ack_count = 8
-                        self.issue_command("FW10") # ack_count = 9
-                        self.issue_command("FW10") # ack_count = 10
-                        self.second_direction = img_data["image_label"]
-                    elif img_data["image_label"] == "Right":
-                        self.issue_command("FR00") # ack_count = 7
-                        self.issue_command("FL00") # ack_count = 8
-                        self.issue_command("FW10") # ack_count = 9
-                        self.issue_command("FW10") # ack_count = 10
-                        self.second_direction = img_data["image_label"]
-                    else:
-                        self.near_flag.set() # need to take again when closer to image
+                    self.near_flag.set() # need to take again when closer to image
 
             elif self.ack_count == 6: # Robot reached second obstacle
                 if self.near_flag.is_set(): # need to take image again
@@ -201,16 +201,16 @@ class RpiModule:
                     img_data = self.server.predict_image(save_path)
 
                     if img_data["image_label"] == "Left":
-                        self.issue_command("FL00") # ack_count = 7
-                        self.issue_command("FW30") # ack_count = 8
-                        self.issue_command("FR00") # ack_count = 9
-                        self.issue_command("FW10") # ack_count = 10
+                        self.command_queue.put("FL00") # ack_count = 7
+                        self.command_queue.put("FW30") # ack_count = 8
+                        self.command_queue.put("FR00") # ack_count = 9
+                        self.command_queue.put("FW10") # ack_count = 10
                     # By default, go right
                     else:
-                        self.issue_command("FR00") # ack_count = 7
-                        self.issue_command("FW30") # ack_count = 8
-                        self.issue_command("FL00") # ack_count = 9
-                        self.issue_command("FW10") # ack_count = 10
+                        self.command_queue.put("FR00") # ack_count = 7
+                        self.command_queue.put("FW30") # ack_count = 8
+                        self.command_queue.put("FL00") # ack_count = 9
+                        self.command_queue.put("FW10") # ack_count = 10
 
                     self.second_direction = img_data["image_label"]
 
@@ -218,28 +218,28 @@ class RpiModule:
             
             elif self.ack_count == 10: # Robot crossed second obstacle
                 if self.second_direction == "Left":
-                    self.issue_command("FR00")
-                    self.issue_command("FW60")
-                    self.issue_command("FR00")
+                    self.command_queue.put("FR00")
+                    self.command_queue.put("FW60")
+                    self.command_queue.put("FR00")
                     # Move until right side barrier of parking lot
-                    self.issue_command("FW00") # placeholder for command to keep moving until obstacle
-                    self.issue_command("FR00")
-                    self.issue_command("FL00")
+                    self.command_queue.put("FW00") # placeholder for command to keep moving until obstacle
+                    self.command_queue.put("FR00")
+                    self.command_queue.put("FL00")
                     # Move until inside parking lot
-                    self.issue_command("FW00") # placeholder for command to keep moving until obstacle
-                    self.issue_command("FIN")
+                    self.command_queue.put("FW00") # placeholder for command to keep moving until obstacle
+                    self.command_queue.put("FIN")
                 
                 else:
-                    self.issue_command("FL00")
-                    self.issue_command("FW60")
-                    self.issue_command("FL00")
+                    self.command_queue.put("FL00")
+                    self.command_queue.put("FW60")
+                    self.command_queue.put("FL00")
                     # Move until right side barrier of parking lot
-                    self.issue_command("FW00") # placeholder for command to keep moving until obstacle
-                    self.issue_command("FL00")
-                    self.issue_command("FR00")
+                    self.command_queue.put("FW00") # placeholder for command to keep moving until obstacle
+                    self.command_queue.put("FL00")
+                    self.command_queue.put("FR00")
                     # Move until inside parking lot
-                    self.issue_command("FW00") # placeholder for command to keep moving until obstacle
-                    self.issue_command("FIN")
+                    self.command_queue.put("FW00") # placeholder for command to keep moving until obstacle
+                    self.command_queue.put("FIN")
 
     def handle_commands(self):
         while True:
@@ -389,110 +389,6 @@ class RpiModule:
 
             self.spawn_android_processes()
             self.android_dropped_event.clear()
-
-    def issue_command(self, command:str):
-        self.command_queue.put(command)
-        self.translate_robot(command)
-        self.android_msgs.put(RobotLocMessage(self.robot_location))
-
-    def translate_robot(self, command:str):
-        """
-        Translate the robot using the command given and updates its predicted location
-        """
-        if len(command) < 4:
-            logging.debug("[RpiModule.translate_robot]Invalid command from android")
-            return
-        if command.startswith("FW") or command.startswith("FS"):
-            if self.robot_location['d'] == Direction.NORTH.value:
-                self.robot_location['y'] += int(command[2:]) // 10
-            elif self.robot_location['d'] == Direction.EAST.value:
-                self.robot_location['x'] += int(command[2:]) // 10
-            elif self.robot_location['d'] == Direction.SOUTH.value:
-                self.robot_location['y'] -= int(command[2:]) // 10
-            elif self.robot_location['d'] == Direction.WEST.value:
-                self.robot_location['x'] -= int(command[2:]) // 10
-
-        elif command.startswith("BW") or command.startswith("BS"):
-            if self.robot_location['d'] == Direction.NORTH.value:
-                self.robot_location['y'] -= int(command[2:]) // 10
-            elif self.robot_location['d'] == Direction.EAST.value:
-                self.robot_location['x'] -= int(command[2:]) // 10
-            elif self.robot_location['d'] == Direction.SOUTH.value:
-                self.robot_location['y'] += int(command[2:]) // 10
-            elif self.robot_location['d'] == Direction.WEST.value:
-                self.robot_location['x'] += int(command[2:]) // 10
-
-        elif command.startswith("BR"):
-            if self.robot_location['d'] == Direction.NORTH.value:
-                self.robot_location['y'] += -3
-                self.robot_location['x'] += 1
-                self.robot_location['d'] = Direction.WEST.value
-            elif self.robot_location['d'] == Direction.EAST.value:
-                self.robot_location['y'] += -1
-                self.robot_location['x'] += -3
-                self.robot_location['d'] = Direction.NORTH.value
-            elif self.robot_location['d'] == Direction.SOUTH.value:
-                self.robot_location['y'] += 3
-                self.robot_location['x'] += -1
-                self.robot_location['d'] = Direction.EAST.value
-            elif self.robot_location['d'] == Direction.WEST.value:
-                self.robot_location['y'] += 1
-                self.robot_location['x'] += 3
-                self.robot_location['d'] = Direction.SOUTH.value
-
-        elif command.startswith("BL"):
-            if self.robot_location['d'] == Direction.NORTH.value:
-                self.robot_location['y'] += -3
-                self.robot_location['x'] += -1
-                self.robot_location['d'] = Direction.EAST.value
-            elif self.robot_location['d'] == Direction.EAST.value:
-                self.robot_location['y'] += 1
-                self.robot_location['x'] += -3
-                self.robot_location['d'] = Direction.SOUTH.value
-            elif self.robot_location['d'] == Direction.SOUTH.value:
-                self.robot_location['y'] += 3
-                self.robot_location['x'] += 1
-                self.robot_location['d'] = Direction.WEST.value
-            elif self.robot_location['d'] == Direction.WEST.value:
-                self.robot_location['y'] += -1
-                self.robot_location['x'] += 3
-                self.robot_location['d'] = Direction.NORTH.value
-
-        elif command.startswith("FL"):
-            if self.robot_location['d'] == Direction.NORTH.value:
-                self.robot_location['y'] += 3
-                self.robot_location['x'] += -1
-                self.robot_location['d'] = Direction.WEST.value
-            elif self.robot_location['d'] == Direction.EAST.value:
-                self.robot_location['y'] += -1
-                self.robot_location['x'] += -3
-                self.robot_location['d'] = Direction.SOUTH.value
-            elif self.robot_location['d'] == Direction.SOUTH.value:
-                self.robot_location['y'] += -3
-                self.robot_location['x'] += 1
-                self.robot_location['d'] = Direction.EAST.value
-            elif self.robot_location['d'] == Direction.WEST.value:
-                self.robot_location['y'] += -1
-                self.robot_location['x'] += -3
-                self.robot_location['d'] = Direction.SOUTH.value
-
-        elif command.startswith("FR"):
-            if self.robot_location['d'] == Direction.NORTH.value:
-                self.robot_location['y'] += 3
-                self.robot_location['x'] += 1
-                self.robot_location['d'] = Direction.EAST.value
-            elif self.robot_location['d'] == Direction.EAST.value:
-                self.robot_location['y'] += 1
-                self.robot_location['x'] += -3
-                self.robot_location['d'] = Direction.NORTH.value
-            elif self.robot_location['d'] == Direction.SOUTH.value:
-                self.robot_location['y'] += -3
-                self.robot_location['x'] += -1
-                self.robot_location['d'] = Direction.WEST.value
-            elif self.robot_location['d'] == Direction.WEST.value:
-                self.robot_location['y'] += 1
-                self.robot_location['x'] += -3
-                self.robot_location['d'] = Direction.NORTH.value
 
 
 if __name__ == "__main__":

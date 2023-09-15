@@ -1,5 +1,5 @@
-StartAndroid    = False
-StartSTM        = False
+StartAndroid    = True
+StartSTM        = True
 StartCamera     = True
 CheckSvr        = True
 
@@ -130,6 +130,7 @@ class RpiModule:
 
             if msg is None:
                 continue
+            logging.debug(f"[android]: {msg}")
             # add obstacles and calculate shortest path
             if msg.category == BluetoothHeader.ITEM_LOCATION.value:
                 # reset obstacles
@@ -168,7 +169,8 @@ class RpiModule:
                 self.movement_lock.acquire()
                 self.start_movement.set()
                 self.clear_queues()
-
+                
+                #self.stm.send("RS00")
                 command:str = msg.value
                 self.command_queue.put(command)
                 self.translate_robot(command)

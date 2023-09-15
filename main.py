@@ -202,17 +202,21 @@ class RpiModule:
                 continue
 
             if not "ACK" in msg or len(msg) <= 0:
-                #logging.warning(f"[RpiModule.handle_stm_messages]Received unknown message from STM: {msg}, {type(msg)}")
                 continue
 
             try:
+                # Movement Lock is needed to prevent further commands sent to stm
+                self.movement_lock.acquire()
+
                 cur_location = self.path_queue.get_nowait()
                 self.robot_location["x"] = cur_location["x"]
                 self.robot_location["y"] = cur_location["y"]
                 self.robot_location["d"] = cur_location["d"]
                 
                 self.android_msgs.put(RobotLocMessage(self.robot_location))
-                
+
+                # Allow further actions to be sent to stm
+                self.movement_lock.release()
             except queue.Empty:
                 continue
             except EOFError:
@@ -232,6 +236,8 @@ class RpiModule:
 
             # Wait until path has been calculated
             self.start_movement.wait()
+
+            # Movement Lock is needed to move and take pictures
             self.movement_lock.acquire()
 
             if command.startswith(stm_command_prefixes):

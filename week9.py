@@ -118,8 +118,7 @@ class RpiModule:
                 img_data = self.server.predict_image(save_path)
 
                 # To move until obstacle is reached
-                # placeholder for command to keep moving until obstacle
-                self.command_queue.put("FW00") # ack_count = 2
+                self.command_queue.put("DT10") # ack_count = 2
                 
                 if img_data["image_label"] == "Left":
                     self.command_queue.put("FL00") # ack_count = 3
@@ -176,8 +175,7 @@ class RpiModule:
                 img_data = self.server.predict_image(save_path)
 
                 # To move until obstacle is reached
-                # placeholder for command to keep moving until obstacle
-                self.command_queue.put("FW00") # ack_count = 6
+                self.command_queue.put("DT10") # ack_count = 6
 
                 if img_data["image_label"] == "Left":
                     self.command_queue.put("FL00") # ack_count = 7
@@ -222,11 +220,11 @@ class RpiModule:
                     self.command_queue.put("FW60")
                     self.command_queue.put("FR00")
                     # Move until right side barrier of parking lot
-                    self.command_queue.put("FW00") # placeholder for command to keep moving until obstacle
+                    self.command_queue.put("DT10")
                     self.command_queue.put("FR00")
                     self.command_queue.put("FL00")
                     # Move until inside parking lot
-                    self.command_queue.put("FW00") # placeholder for command to keep moving until obstacle
+                    self.command_queue.put("DT10")
                     self.command_queue.put("FIN")
                 
                 else:
@@ -234,11 +232,11 @@ class RpiModule:
                     self.command_queue.put("FW60")
                     self.command_queue.put("FL00")
                     # Move until right side barrier of parking lot
-                    self.command_queue.put("FW00") # placeholder for command to keep moving until obstacle
+                    self.command_queue.put("DT10")
                     self.command_queue.put("FL00")
                     self.command_queue.put("FR00")
                     # Move until inside parking lot
-                    self.command_queue.put("FW00") # placeholder for command to keep moving until obstacle
+                    self.command_queue.put("DT10")
                     self.command_queue.put("FIN")
 
     def handle_commands(self):

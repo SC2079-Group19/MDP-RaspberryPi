@@ -69,6 +69,7 @@ class AndroidModule:
         try:
             encoded_msg = self.client_sock.recv(1024)
             msg = encoded_msg.decode("utf-8")
+            #msg = msg.replace("\"", "'")
             logging.debug(f"[AndroidModule]Received message from android: {msg}")
             return msg
 

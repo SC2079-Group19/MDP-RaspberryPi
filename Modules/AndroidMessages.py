@@ -7,6 +7,7 @@ class BluetoothHeader(str, Enum):
     ITEM_LOCATION = 'ITEM_LOCATION',
     ROBOT_LOCATION = 'ROBOT_LOCATION',
     IMAGE_INFO = 'IMAGE_INFO'
+    IMAGE_RESULT = 'IMAGE_RESULT'
 
     def __int__(self):
         return self.value
@@ -39,9 +40,14 @@ class InfoMessage(AndroidMessage):
         super(InfoMessage, self).__init__(BluetoothHeader.ROBOT_STATUS.value, value)
 
 class RobotLocMessage(AndroidMessage):
-    def __init__(self, value: str):
-        super(RobotLocMessage, self).__init__(BluetoothHeader.ROBOT_LOCATION.value, ''.join(value))
+    def __init__(self, value : dict):
+        super(RobotLocMessage, self).__init__(BluetoothHeader.ROBOT_LOCATION.value, str(value))
 
 class ImageMessage(AndroidMessage):
     def __init__(self, value: str):
         super(ImageMessage, self).__init__(BluetoothHeader.IMAGE_INFO.value, value)
+
+class ObstacleMessage(AndroidMessage):
+    def __init__(self, v):
+        pass
+        #super().__init__(category, value)

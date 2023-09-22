@@ -14,7 +14,9 @@ class CameraModule:
                 f"{self._warmup_time}s warm up time")
 
     def capture(self, name:str):
+        logging.info(f"[CameraModule]Try capturing")
         camera = PiCamera()
+        logging.info(f"[CameraModule]After object ccreation")
         camera.resolution = resolution
         sleep(self._warmup_time)
 

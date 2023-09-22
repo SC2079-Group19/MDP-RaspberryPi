@@ -96,9 +96,8 @@ class RpiModule:
         try:
             if not StartAndroid:
                 while True:
-                    pass
+                    self.check_processes_if_running()
             else:
-                logging.info("[RpiModule.EventLoop]handle_android_drop_event")
                 self.handle_android_drop_event()
         except KeyboardInterrupt:
             logging.info("[RpiModule.EventLoop]KeyboardInterrupt")
@@ -486,7 +485,10 @@ class RpiModule:
 
     def handle_android_drop_event(self):
         while True:
-            self.android_dropped_event.wait()
+            res = self.android_dropped_event.wait(1)
+            if not res:
+                self.check_processes_if_running()
+                continue
 
             logging.debug('[RpiModule.handle_android_drop_event]Killing android process')
             self.handle_android_msgs_process.kill()
@@ -502,7 +504,20 @@ class RpiModule:
             self.spawn_android_processes()
             self.android_dropped_event.clear()
 
-
+    def check_processes_if_running(self):
+        if StartSTM:
+            if not self.handle_commands_process.is_alive():
+                logging.debug('[RpiModule.check_processes_if_running]handle_commands_process might have crashed, restarting')
+                self.handle_commands_process.join()
+                self.handle_commands_process = Process(target=self.handle_commands)
+                self.handle_commands_process.start()
+        
+            if not self.handle_stm_msgs_process.is_alive():
+                logging.debug('[RpiModule.check_processes_if_running]handle_stm_msgs_process might have crashed, restarting')
+                self.handle_stm_msgs_process.join()
+                self.handle_stm_msgs_process = Process(target=self.handle_stm_messages)
+                self.handle_stm_msgs_process.start()
+        
 if __name__ == "__main__":
     rpi = RpiModule()
     if rpi.initialize():

@@ -17,7 +17,8 @@ from config import stm_command_prefixes, server_url, server_port
 from helper import RobotStatus, Direction
 if StartAndroid:
     from Modules.AndroidModule import AndroidModule
-from Modules.AndroidMessages import AndroidMessage, InfoMessage, RobotLocMessage, ImageMessage, BluetoothHeader
+from Modules.AndroidMessages import AndroidMessage, InfoMessage, RobotLocMessage, \
+    ImageMessage, BluetoothHeader, StatusMessage
 if StartCamera:
     from Modules.CameraModule import CameraModule
 
@@ -133,7 +134,7 @@ class RpiModule:
 
             if msg is None:
                 continue
-            logging.debug(f"[android]: {msg}")
+            logging.debug(f"[RpiModule.handle_android_messages]: {msg}")
             # add obstacles and calculate shortest path
             if msg.category == BluetoothHeader.ITEM_LOCATION.value:
                 # reset obstacles
@@ -173,7 +174,7 @@ class RpiModule:
                 # Enable movement
                 self.start_movement.set()
 
-                self.android_msgs.put(InfoMessage(str(RobotStatus.READY.value)))
+                self.android_msgs.put(StatusMessage(RobotStatus.READY))
 
             # manual control
             elif msg.category == BluetoothHeader.ROBOT_CONTROL.value:
@@ -185,7 +186,6 @@ class RpiModule:
                 self.movement_lock.acquire()
                 
                 self.clear_queues()
-                # self.stm.send("RS00")
                 command:str = msg.value
                 self.command_queue.put(command)
                 self.translate_robot(command)
@@ -195,7 +195,6 @@ class RpiModule:
                 self.full.set()
                 self.movement_lock.release()
                       
-
     def send_android_messages(self):
         while True:
             try:
@@ -260,7 +259,6 @@ class RpiModule:
             self.movement_lock.acquire()
 
             if command.startswith(stm_command_prefixes):
-                #logging.info("[RpiModule.handle_commands]Inside send")
                 self.stm.send(command)
                 self.empty.set()
 
@@ -269,7 +267,7 @@ class RpiModule:
                     img_name = command[4:]
                 else:
                     img_name = command[4:command.find("_")] + "_" + command[command.find('_')+1:]
-                self.android_msgs.put(InfoMessage(str(RobotStatus.DETECTING_IMAGE.value)))
+                self.android_msgs.put(StatusMessage(RobotStatus.DETECTING_IMAGE))
 
                 img_name = f"{time.time()}_{img_name}"
                 save_path = self.camera.capture(img_name)
@@ -289,7 +287,7 @@ class RpiModule:
                 self.start_movement.clear()
                 self.empty.clear()
                 self.android_msgs.put(InfoMessage("Commands queue finished."))
-                self.android_msgs.put(InfoMessage(str(RobotStatus.FINISH.value)))
+                self.android_msgs.put(StatusMessage(RobotStatus.FINISH))
 
             else:
                 logging.warning(f"[RpiModule.handle_commands]Unknown command: {command}")
@@ -339,8 +337,8 @@ class RpiModule:
         """
         Sends a request to the server to find the shortest path and associated commands
         """
-        self.android_msgs.put(InfoMessage(str(RobotStatus.CALCULATING_PATH.value)))
-        logging.debug('[find_shortest_path]Finding path')
+        self.android_msgs.put(StatusMessage(RobotStatus.CALCULATING_PATH))
+        logging.debug('[RpiModule.find_shortest_path]Finding path')
         data = {
             "obstacles": list(self.obstacles),
             "robot_pos_x": robot_pos_x,
@@ -489,7 +487,7 @@ class RpiModule:
     def handle_android_drop_event(self):
         while True:
             self.android_dropped_event.wait()
-            
+
             logging.debug('[RpiModule.handle_android_drop_event]Killing android process')
             self.handle_android_msgs_process.kill()
             self.send_android_msgs_process.kill()

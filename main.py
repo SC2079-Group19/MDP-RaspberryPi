@@ -183,16 +183,16 @@ class RpiModule:
                     logging.warning("[RpiModule.handle_android_messages]movement lock is already released")
 
                 self.movement_lock.acquire()
-                self.start_movement.set()
-                self.clear_queues()
-                self.full.set()
                 
-                #self.stm.send("RS00")
+                self.clear_queues()
+                # self.stm.send("RS00")
                 command:str = msg.value
                 self.command_queue.put(command)
                 self.translate_robot(command)
                 self.path_queue.put(self.robot_location)
 
+                self.start_movement.set()
+                self.full.set()
                 self.movement_lock.release()
                       
 
@@ -201,7 +201,6 @@ class RpiModule:
             try:
                 if self.android_msgs.empty():
                     continue
-                #time.sleep(5)
                 msg:AndroidMessage = self.android_msgs.get()
                 logging.debug(f"[RpiModule.send_android_messages]msg:{msg}")
                 self.android.send(msg)
@@ -237,9 +236,7 @@ class RpiModule:
                 self.empty.clear()
             except queue.Empty:
                 continue
-            except EOFError:
-                continue
-            except Exception as e:
+            except Exception:
                 continue
     
     def UpdateAndroidRobotLocation(self):
@@ -266,32 +263,31 @@ class RpiModule:
                 #logging.info("[RpiModule.handle_commands]Inside send")
                 self.stm.send(command)
                 self.empty.set()
-                self.full.clear()
 
             elif command.startswith("SNAP"):
                 if command.find("_") == -1:
                     img_name = command[4:]
                 else:
                     img_name = command[4:command.find("_")] + "_" + command[command.find('_')+1:]
-                logging.debug('[RpiModule.handle_commands]In snap')
                 self.android_msgs.put(InfoMessage(str(RobotStatus.DETECTING_IMAGE.value)))
-                logging.debug('[RpiModule.handle_commands]after android msg')
+
                 img_name = f"{time.time()}_{img_name}"
                 save_path = self.camera.capture(img_name)
-                logging.debug('[RpiModule.handle_commands]After capture')
                 img_data = self.server.predict_image(save_path)
-                logging.debug('[RpiModule.handle_commands]Predict after')
                 logging.info(f"[RpiModule.predict_image]Image data: {img_data}")
-                
-                self.android_msgs.put(AndroidMessage(BluetoothHeader.IMAGE_RESULT.value, str({
-                    "target_id": int(img_data['image_id']),
-                    "obstacle_id": int(img_data['obstacle_id'])
-                })))
+
+                if img_data is not None:
+                    self.android_msgs.put(AndroidMessage(BluetoothHeader.IMAGE_RESULT.value, str({
+                        "target_id": int(img_data['image_id']),
+                        "obstacle_id": int(img_data['obstacle_id'])
+                    })))
+
+                # Should need but it seems to work
+                self.empty.set()
 
             elif command == "FIN":
                 self.start_movement.clear()
                 self.empty.clear()
-                self.full.clear()
                 self.android_msgs.put(InfoMessage("Commands queue finished."))
                 self.android_msgs.put(InfoMessage(str(RobotStatus.FINISH.value)))
 
@@ -300,6 +296,7 @@ class RpiModule:
             
             # release the lock after processing command
             self.movement_lock.release()
+            self.full.clear()
 
     def check_server(self):
         """
@@ -343,7 +340,7 @@ class RpiModule:
         Sends a request to the server to find the shortest path and associated commands
         """
         self.android_msgs.put(InfoMessage(str(RobotStatus.CALCULATING_PATH.value)))
-        logging.debug('[find_shortest_path]finding path')
+        logging.debug('[find_shortest_path]Finding path')
         data = {
             "obstacles": list(self.obstacles),
             "robot_pos_x": robot_pos_x,
@@ -351,33 +348,22 @@ class RpiModule:
             "robot_dir": robot_dir,
             "retrying": retrying
         }
-        logging.debug('[find_shortest_path]finding path 2')
-        res = requests.post(f"{self.server.url}/algo", json=data)
+        path_data = self.server.query_path(data)
 
-        if res.status_code != 200:
-            self.android_msgs.put(InfoMessage(f"There was an error when requesting to server. Status Code: {res.status_code}"))
-            logging.warning(f"[RpiModule.find_shortest_path]There was an error when requesting to server. Status Code: {res.status_code}")
-            return
-        logging.debug('[RpiModule.find_shortest_path]gotten path')
+        if path_data is None:
+            self.android_msgs.put(InfoMessage(f"There was an error when querying path"))
 
-        res_data = res.json()
-        path_data = res_data['data']
-        
-        if res_data['error']:
-            self.android_msgs.put(InfoMessage(f"Error when calculating shortest path: {res_data['error']}"))
-            logging.warning(f"[RpiModule.find_shortest_path]Error when calculating shortest path: {res_data['error']}")
-            return
+        else:
+            # ignore first element as it is the starting position of the robot
+            for location in path_data['path'][1:]:
+                self.path_queue.put(location)
+            
+            for command in path_data['commands']:
+                self.command_queue.put(command)
 
-        # ignore first element as it is the starting position of the robot
-        for location in path_data['path'][1:]:
-            self.path_queue.put(location)
-        
-        for command in path_data['commands']:
-            self.command_queue.put(command)
-
-        self.android_msgs.put(InfoMessage("Retrieved shortest path from server. Robot is ready to move"))
-        self.start_movement.set()
-        self.full.set()
+            self.android_msgs.put(InfoMessage("Retrieved shortest path from server. Robot is ready to move"))
+            self.start_movement.set()
+            self.full.set()
 
     def translate_robot(self, command:str):
         """

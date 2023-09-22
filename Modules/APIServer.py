@@ -23,10 +23,32 @@ class APIServer:
         img_name = os.path.basename(img_path)
 
         res = requests.post(f"{self.url}/predict", files={"file": (img_name, img)})
-        img_data = res.json()
-        logging.debug(f"[APIServer]Image {img_name} is predicted to be {img_data['image_label']}")
+        try:
+            img_data = res.json()
+            logging.debug(f"[APIServer]Image {img_name} is predicted to be {img_data['image_label']}")
+            return img_data
+        except Exception as e:
+            logging.warning(f"[APIServer]Error when predicting image: {e}")
+            return None
 
-        return img_data
+
+    def query_path(self, data:dict):
+        res = requests.post(f"{self.url}/algo", json=data)
+
+        if res.status_code != 200:
+            logging.warning(f"[APIServer]There was an error when requesting to server. Status Code: {res.status_code}")
+            return None
+        
+        res_data = res.json()
+
+        if res_data['error']:
+            logging.warning(f"[APIServer]Error when calculating shortest path: {res_data['error']}")
+            return None
+        
+        logging.debug("[APIServer]Successfully queried path")
+        return res_data['data']
+
+
 
 
 if __name__ == "__main__":

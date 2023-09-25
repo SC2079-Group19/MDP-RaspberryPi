@@ -5,6 +5,11 @@ from picamera import PiCamera
 
 from config import resolution, warmup_time
 
+"""
+> .Capture method creates a PiCamera object, this object belongs to the caller thread
+> If any other thread happens to call capture, there will be a deadlock as PiCamera object creation
+> will try to get ownership from the other thread
+"""
 class CameraModule:
     def __init__(self):
         self._save_folder = "./images/"

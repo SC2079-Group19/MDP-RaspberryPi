@@ -3,8 +3,6 @@ StartSTM        = True
 StartCamera     = True
 CheckSvr        = True
 
-Testing         = False
-
 import json
 import logging
 import os
@@ -81,14 +79,6 @@ class RpiModule:
             self.handle_stm_msgs_process.start()
             self.handle_commands_process.start()
 
-        if Testing:
-            self.command_queue.put("SNAP1")
-            self.command_queue.put("SNAP2")
-            self.handle_commands_process = Process(target=self.handle_commands)
-            self.handle_commands_process.start()
-            self.start_movement.set()
-            logging.info("[RpiModule.initialize]Testing Mode Started")
-
         logging.info("[RpiModule.initialize]Processes started")
         return True
 
@@ -138,27 +128,16 @@ class RpiModule:
             if msg.category == BluetoothHeader.ITEM_LOCATION.value:
                 # reset obstacles
                 self.obstacles[:] = [] #has to clear it this way as its shared object
-                #if 'obstacles' not in msg.value:
-                    #logging.debug('[RpiModule.handle_android_messages]Invalid obstacle data')
-                    #continue
-                #for ob in msg.value['obstacles']:
+
                 data_dict = json.loads(msg.value)
                 logging.debug(f'msg.value = {msg.value}')
-                if data_dict['d'] == Direction.SKIP.value:
-                    for x, i in enumerate([Direction.NORTH.value,  Direction.WEST.value, Direction.SOUTH.value, Direction.EAST.value]):
-                        self.obstacles.append({
-                            "x": data_dict['x'],
-                            "y": data_dict['y'],
-                            "d": i,
-                            "id": data_dict['id'] + x,
-                        })
-                else:
-                    self.obstacles.append({
-                        "x": data_dict['x'],
-                        "y": data_dict['y'],
-                        "d": data_dict['d'],
-                        "id": data_dict['id'],
-                    })
+
+                self.obstacles.append({
+                    "x": data_dict['x'],
+                    "y": data_dict['y'],
+                    "d": data_dict['d'],
+                    "id": data_dict['id'],
+                })
                 
                 self.find_shortest_path()
 
@@ -268,9 +247,6 @@ class RpiModule:
                 self.empty.set()
 
             elif command.startswith("SNAP"):
-                # hard code
-                id = 1
-
                 if command.find("_") == -1:
                     img_name = command[4:]
                 else:
@@ -289,8 +265,7 @@ class RpiModule:
                 if img_data is not None:
                     self.android_msgs.put(AndroidMessage(BluetoothHeader.IMAGE_RESULT.value, str({
                         "target_id": int(img_data['image_id']),
-                        # "obstacle_id": int(img_data['obstacle_id'])
-                        "obstacle_id": int(id)
+                        "obstacle_id": int(img_data['obstacle_id'])
                     })))
 
             elif command == "FIN":

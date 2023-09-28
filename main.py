@@ -139,7 +139,7 @@ class RpiModule:
                     "id": data_dict['id'],
                 })
                 
-                self.find_shortest_path()
+                self.find_shortest_path(retrying=False, bull=False)
 
             elif msg.category == 'start':
                 if self.command_queue.empty():
@@ -319,7 +319,7 @@ class RpiModule:
             logging.warning(f"[RpiModule.check_camera]Camera error: {e}")
             return False
 
-    def find_shortest_path(self, robot_pos_x=1, robot_pos_y=1, robot_dir=0, retrying=False):
+    def find_shortest_path(self, robot_pos_x=1, robot_pos_y=1, robot_dir=0, retrying=False, bull=False):
         """
         Sends a request to the server to find the shortest path and associated commands
         """
@@ -330,7 +330,8 @@ class RpiModule:
             "robot_pos_x": robot_pos_x,
             "robot_pos_y": robot_pos_y,
             "robot_dir": robot_dir,
-            "retrying": retrying
+            "retrying": retrying,
+            "bull": bull
         }
         path_data = self.server.query_path(data)
 

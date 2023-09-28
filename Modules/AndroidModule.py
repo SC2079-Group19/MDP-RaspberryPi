@@ -62,7 +62,7 @@ class AndroidModule:
             logging.debug(f"[AndroidModule]Sent message to android: {message.json}")
         
         except Exception as e:
-            logging.warning(f"[AndroidModule]Error when sending message to andriod: {e} : {type(e)}")
+            logging.warning(f"[AndroidModule]Error when sending message to android: {e} : {type(e)}")
             raise e
 
     def receive(self):
@@ -74,7 +74,7 @@ class AndroidModule:
             return msg
 
         except Exception as e:
-            logging.warning(f"[AndroidModule]Error when receiving message from andriod: {e}")
+            logging.warning(f"[AndroidModule]Error when receiving message from android: {e}")
             raise e
 
 

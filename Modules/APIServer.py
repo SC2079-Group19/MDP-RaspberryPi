@@ -47,9 +47,7 @@ class APIServer:
         
         logging.debug("[APIServer]Successfully queried path")
         return res_data['data']
-
-
-
+    
 
 if __name__ == "__main__":
     pass

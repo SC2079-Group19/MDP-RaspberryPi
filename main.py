@@ -68,8 +68,6 @@ class RpiModule:
                 return False
         if CheckSvr:
             self.check_server()
-        # if StartCamera:
-        #     self.check_camera()
 
         if StartAndroid:
             self.spawn_android_processes()
@@ -135,14 +133,23 @@ class RpiModule:
                 self.obstacles.append({
                     "x": data_dict['x'],
                     "y": data_dict['y'],
-                    "d": data_dict['d'] if int(data_dict['d']) != 8 else 0,
-                    # "d": data_dict['d'],
+                    "d": int(data_dict['d']),
                     "id": data_dict['id'],
                 })
                 
                 self.find_shortest_path(retrying=False, bull=False)
 
-            elif msg.category == 'start':
+            elif msg.category == BluetoothHeader.ROBOT_LOCATION.value:
+                data_dict = json.loads(msg.value)
+                logging.debug(f'msg.value = {msg.value}')
+
+                self.robot_location["x"] = data_dict['x']
+                self.robot_location["y"] = data_dict['y']
+                self.robot_location["z"] = data_dict['z']
+
+                logging.debug(f"[RpiModule.handle_android_messages]New Robot Location - x: {self.robot_location['x']}, y: {self.robot_location['y']}, d: {self.robot_location['d']}")
+
+            elif msg.category == BluetoothHeader.START_MOVEMENT.value:
                 if self.command_queue.empty():
                     self.android_msgs.put(InfoMessage("No obstacles set"))
                     continue
@@ -208,7 +215,14 @@ class RpiModule:
                 cur_location = self.path_queue.get_nowait()
                 self.robot_location["x"] = cur_location["x"]
                 self.robot_location["y"] = cur_location["y"]
+
+                # Sanity check
+                if cur_location['d'] >= 360:
+                    cur_location['d'] = cur_location['d'] % 360
+                while cur_location['d'] < 0:
+                    cur_location['d'] += 360
                 self.robot_location["d"] = cur_location["d"]
+
                 self.UpdateAndroidRobotLocation()
                 # Allow further actions to be sent to stm
                 self.movement_lock.release()

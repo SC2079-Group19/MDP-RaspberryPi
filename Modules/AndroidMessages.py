@@ -9,6 +9,7 @@ class BluetoothHeader(str, Enum):
     ROBOT_LOCATION = 'ROBOT_LOCATION',
     IMAGE_INFO = 'IMAGE_INFO'
     IMAGE_RESULT = 'IMAGE_RESULT'
+    START_MOVEMENT = 'START_MOVEMENT'
 
     def __int__(self):
         return self.value

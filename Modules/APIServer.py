@@ -46,6 +46,7 @@ class APIServer:
             return None
         
         logging.debug("[APIServer]Successfully queried path")
+        logging.debug(f"{res_data['data']}")
         return res_data['data']
     
 

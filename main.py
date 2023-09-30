@@ -135,7 +135,8 @@ class RpiModule:
                 self.obstacles.append({
                     "x": data_dict['x'],
                     "y": data_dict['y'],
-                    "d": data_dict['d'],
+                    "d": data_dict['d'] if int(data_dict['d']) != 8 else 0,
+                    # "d": data_dict['d'],
                     "id": data_dict['id'],
                 })
                 
@@ -203,7 +204,7 @@ class RpiModule:
                 self.empty.wait()
                 logging.debug("[RpiModule.handle_stm_messages]Waiting for movement_lock")
                 self.movement_lock.acquire()
-
+                logging.debug("[RpiModule.handle_stm_messages]Waiting for path_queue")
                 cur_location = self.path_queue.get_nowait()
                 self.robot_location["x"] = cur_location["x"]
                 self.robot_location["y"] = cur_location["y"]
@@ -243,6 +244,7 @@ class RpiModule:
 
             if command.startswith(stm_command_prefixes):
                 self.stm.send(command)
+                self.movement_lock.release()
                 self.full.clear()
                 self.empty.set()
 
@@ -252,6 +254,7 @@ class RpiModule:
                 else:
                     img_name = command[4:command.find("_")] + "_" + command[command.find('_')+1:]
                 
+                logging.info(f"[RpiModule.predict_image]Image Name: {img_name}")
                 self.android_msgs.put(StatusMessage(RobotStatus.DETECTING_IMAGE))
                 logging.info(f"[RpiModule.predict_image]After send status")
                 img_name = f"{time.time()}_{img_name}"
@@ -268,9 +271,12 @@ class RpiModule:
                         "obstacle_id": int(img_data['obstacle_id'])
                     })))
 
+                self.movement_lock.release()
+
             elif command == "FIN":
                 self.start_movement.clear()
                 self.empty.clear()
+                self.movement_lock.release()
                 self.full.clear()
 
                 self.android_msgs.put(InfoMessage("Commands queue finished."))
@@ -278,9 +284,6 @@ class RpiModule:
 
             else:
                 logging.warning(f"[RpiModule.handle_commands]Unknown command: {command}")
-            
-            # release the lock after processing command
-            self.movement_lock.release()
 
     def check_server(self):
         """

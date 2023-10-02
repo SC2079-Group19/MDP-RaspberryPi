@@ -5,11 +5,13 @@ import socket
 
 from config import uuid,service_name
 from Modules.AndroidMessages import AndroidMessage
+from utils import CreateColouredLogging
 
 class AndroidModule:
     def __init__(self):
         self.client_sock = None
         self.server_sock = None
+        #self.logger = CreateColouredLogging(__name__)
 
     def connect(self):
         logging.info("[AndroidModule]Bluetooth connection started")

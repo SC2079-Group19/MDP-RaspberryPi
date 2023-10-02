@@ -12,7 +12,7 @@ import queue
 import time
 
 from config import stm_command_prefixes, server_url, server_port
-from helper import RobotStatus, Direction
+from helper import RobotStatus, Direction, TranslateCommand
 if StartAndroid:
     from Modules.AndroidModule import AndroidModule
 from Modules.AndroidMessages import AndroidMessage, InfoMessage, RobotLocMessage, \
@@ -22,10 +22,11 @@ if StartCamera:
 
 from Modules.StmModule import StmModule
 from Modules.APIServer import APIServer
+from utils import local_StreamHandler
 
 class RpiModule:
     def __init__(self):
-        logging.basicConfig(level=logging.DEBUG)
+        logging.basicConfig(level=logging.DEBUG, handlers=[local_StreamHandler])
 
         if StartCamera:
             self.camera = CameraModule()
@@ -128,7 +129,7 @@ class RpiModule:
                 self.obstacles[:] = [] #has to clear it this way as its shared object
 
                 data_dict = json.loads(msg.value)
-                logging.debug(f'msg.value = {msg.value}')
+                logging.debug(f'[RpiModule.handle_android_messages]msg.value = {msg.value}')
 
                 self.obstacles.append({
                     "x": data_dict['x'],
@@ -141,7 +142,7 @@ class RpiModule:
 
             elif msg.category == BluetoothHeader.ROBOT_LOCATION.value:
                 data_dict = json.loads(msg.value)
-                logging.debug(f'msg.value = {msg.value}')
+                logging.debug(f'[RpiModule.handle_android_messages]msg.value = {msg.value}')
 
                 self.robot_location["x"] = data_dict['x']
                 self.robot_location["y"] = data_dict['y']
@@ -374,97 +375,10 @@ class RpiModule:
         if len(command) < 4:
             logging.debug("[RpiModule.translate_robot]Invalid command from android")
             return
-        if command.startswith("FW") or command.startswith("FS"):
-            if self.robot_location['d'] == Direction.NORTH.value:
-                self.robot_location['y'] += int(command[2:]) // 10
-            elif self.robot_location['d'] == Direction.EAST.value:
-                self.robot_location['x'] += int(command[2:]) // 10
-            elif self.robot_location['d'] == Direction.SOUTH.value:
-                self.robot_location['y'] -= int(command[2:]) // 10
-            elif self.robot_location['d'] == Direction.WEST.value:
-                self.robot_location['x'] -= int(command[2:]) // 10
-
-        elif command.startswith("BW") or command.startswith("BS"):
-            if self.robot_location['d'] == Direction.NORTH.value:
-                self.robot_location['y'] -= int(command[2:]) // 10
-            elif self.robot_location['d'] == Direction.EAST.value:
-                self.robot_location['x'] -= int(command[2:]) // 10
-            elif self.robot_location['d'] == Direction.SOUTH.value:
-                self.robot_location['y'] += int(command[2:]) // 10
-            elif self.robot_location['d'] == Direction.WEST.value:
-                self.robot_location['x'] += int(command[2:]) // 10
-
-        elif command.startswith("BR"):
-            if self.robot_location['d'] == Direction.NORTH.value:
-                self.robot_location['y'] += -3
-                self.robot_location['x'] += 1
-                self.robot_location['d'] = Direction.WEST.value
-            elif self.robot_location['d'] == Direction.EAST.value:
-                self.robot_location['y'] += -1
-                self.robot_location['x'] += -3
-                self.robot_location['d'] = Direction.NORTH.value
-            elif self.robot_location['d'] == Direction.SOUTH.value:
-                self.robot_location['y'] += 3
-                self.robot_location['x'] += -1
-                self.robot_location['d'] = Direction.EAST.value
-            elif self.robot_location['d'] == Direction.WEST.value:
-                self.robot_location['y'] += 1
-                self.robot_location['x'] += 3
-                self.robot_location['d'] = Direction.SOUTH.value
-
-        elif command.startswith("BL"):
-            if self.robot_location['d'] == Direction.NORTH.value:
-                self.robot_location['y'] += -3
-                self.robot_location['x'] += -1
-                self.robot_location['d'] = Direction.EAST.value
-            elif self.robot_location['d'] == Direction.EAST.value:
-                self.robot_location['y'] += 1
-                self.robot_location['x'] += -3
-                self.robot_location['d'] = Direction.SOUTH.value
-            elif self.robot_location['d'] == Direction.SOUTH.value:
-                self.robot_location['y'] += 3
-                self.robot_location['x'] += 1
-                self.robot_location['d'] = Direction.WEST.value
-            elif self.robot_location['d'] == Direction.WEST.value:
-                self.robot_location['y'] += -1
-                self.robot_location['x'] += 3
-                self.robot_location['d'] = Direction.NORTH.value
-
-        elif command.startswith("FL"):
-            if self.robot_location['d'] == Direction.NORTH.value:
-                self.robot_location['y'] += 3
-                self.robot_location['x'] += -1
-                self.robot_location['d'] = Direction.WEST.value
-            elif self.robot_location['d'] == Direction.EAST.value:
-                self.robot_location['y'] += -1
-                self.robot_location['x'] += -3
-                self.robot_location['d'] = Direction.SOUTH.value
-            elif self.robot_location['d'] == Direction.SOUTH.value:
-                self.robot_location['y'] += -3
-                self.robot_location['x'] += 1
-                self.robot_location['d'] = Direction.EAST.value
-            elif self.robot_location['d'] == Direction.WEST.value:
-                self.robot_location['y'] += -1
-                self.robot_location['x'] += -3
-                self.robot_location['d'] = Direction.SOUTH.value
-
-        elif command.startswith("FR"):
-            if self.robot_location['d'] == Direction.NORTH.value:
-                self.robot_location['y'] += 3
-                self.robot_location['x'] += 1
-                self.robot_location['d'] = Direction.EAST.value
-            elif self.robot_location['d'] == Direction.EAST.value:
-                self.robot_location['y'] += 1
-                self.robot_location['x'] += -3
-                self.robot_location['d'] = Direction.NORTH.value
-            elif self.robot_location['d'] == Direction.SOUTH.value:
-                self.robot_location['y'] += -3
-                self.robot_location['x'] += -1
-                self.robot_location['d'] = Direction.WEST.value
-            elif self.robot_location['d'] == Direction.WEST.value:
-                self.robot_location['y'] += 1
-                self.robot_location['x'] += -3
-                self.robot_location['d'] = Direction.NORTH.value
+        dx, dy, direction = TranslateCommand(command, self.robot_location['d'])
+        self.robot_location['x'] += dx
+        self.robot_location['y'] += dy
+        self.robot_location['d'] = direction
 
     def clear_queues(self):
         """

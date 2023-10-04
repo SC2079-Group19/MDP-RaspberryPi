@@ -1,4 +1,5 @@
 from enum import Enum
+import logging
 
 class RobotStatus(Enum):
     READY = 1

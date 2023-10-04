@@ -3,6 +3,7 @@ StartSTM        = True
 StartCamera     = True
 CheckSvr        = True
 
+import ast
 import json
 import logging
 import os
@@ -122,21 +123,24 @@ class RpiModule:
 
             if msg is None:
                 continue
-            logging.debug(f"[RpiModule.handle_android_messages]: {msg}")
+            logging.debug(f"[RpiModule.handle_android_messages]msg.value: {msg.value}")
+
             # add obstacles and calculate shortest path
             if msg.category == BluetoothHeader.ITEM_LOCATION.value:
                 # reset obstacles
                 self.obstacles[:] = [] #has to clear it this way as its shared object
 
-                data_dict = json.loads(msg.value)
-                logging.debug(f'[RpiModule.handle_android_messages]msg.value = {msg.value}')
+                obstacles = ast.literal_eval(msg.value)  
+                logging.debug(f'[RpiModule.handle_android_messages]data_list = {obstacles}')
+                logging.debug(f'[RpiModule.handle_android_messages]data_list type = {type(obstacles)}')
 
-                self.obstacles.append({
-                    "x": data_dict['x'],
-                    "y": data_dict['y'],
-                    "d": int(data_dict['d']),
-                    "id": data_dict['id'],
-                })
+                for ob in obstacles:
+                    self.obstacles.append({
+                        "x": ob['x'],
+                        "y": ob['y'],
+                        "d": int(ob['d']),
+                        "id": ob['id'],
+                    })
                 
                 self.find_shortest_path(retrying=False, bull=False)
 
@@ -226,9 +230,9 @@ class RpiModule:
 
                 self.UpdateAndroidRobotLocation()
                 # Allow further actions to be sent to stm
-                self.movement_lock.release()
-                self.full.set()
                 self.empty.clear()
+                self.full.set()
+                self.movement_lock.release()
             except queue.Empty:
                 continue
             except Exception:
@@ -259,9 +263,9 @@ class RpiModule:
 
             if command.startswith(stm_command_prefixes):
                 self.stm.send(command)
-                self.movement_lock.release()
                 self.full.clear()
                 self.empty.set()
+                self.movement_lock.release()
 
             elif command.startswith("SNAP"):
                 if command.find("_") == -1:
@@ -286,6 +290,8 @@ class RpiModule:
                         "obstacle_id": int(img_data['obstacle_id'])
                     })))
 
+                # self.full.clear()
+                self.empty.set()
                 self.movement_lock.release()
 
             elif command == "FIN":

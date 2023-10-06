@@ -150,7 +150,7 @@ class RpiModule:
 
                 self.robot_location["x"] = data_dict['x']
                 self.robot_location["y"] = data_dict['y']
-                self.robot_location["z"] = data_dict['z']
+                self.robot_location["d"] = data_dict['d']
 
                 logging.debug(f"[RpiModule.handle_android_messages]New Robot Location - x: {self.robot_location['x']}, y: {self.robot_location['y']}, d: {self.robot_location['d']}")
 
@@ -160,10 +160,11 @@ class RpiModule:
                     continue
 
                 # reset gyroscope
-                self.stm.send("RS00")
+                # self.stm.send("RS00")
 
                 # Enable movement
                 self.start_movement.set()
+                self.full.set()
 
                 self.android_msgs.put(StatusMessage(RobotStatus.READY))
 
@@ -217,18 +218,21 @@ class RpiModule:
                 logging.debug("[RpiModule.handle_stm_messages]Waiting for movement_lock")
                 self.movement_lock.acquire()
                 logging.debug("[RpiModule.handle_stm_messages]Waiting for path_queue")
-                cur_location = self.path_queue.get_nowait()
-                self.robot_location["x"] = cur_location["x"]
-                self.robot_location["y"] = cur_location["y"]
+                try:
+                    cur_location = self.path_queue.get_nowait()
+                    self.robot_location["x"] = cur_location["x"]
+                    self.robot_location["y"] = cur_location["y"]
 
-                # Sanity check
-                if cur_location['d'] >= 360:
-                    cur_location['d'] = cur_location['d'] % 360
-                while cur_location['d'] < 0:
-                    cur_location['d'] += 360
-                self.robot_location["d"] = cur_location["d"]
+                    # Sanity check
+                    if cur_location['d'] >= 360:
+                        cur_location['d'] = cur_location['d'] % 360
+                    while cur_location['d'] < 0:
+                        cur_location['d'] += 360
+                    self.robot_location["d"] = cur_location["d"]
 
-                self.UpdateAndroidRobotLocation()
+                    self.UpdateAndroidRobotLocation()
+                except Exception:
+                    logging.warning("Path queue is empty!")
                 # Allow further actions to be sent to stm
                 self.empty.clear()
                 self.full.set()
@@ -295,10 +299,10 @@ class RpiModule:
                 self.movement_lock.release()
 
             elif command == "FIN":
-                self.start_movement.clear()
-                self.empty.clear()
-                self.movement_lock.release()
-                self.full.clear()
+                # self.start_movement.clear()
+                # self.empty.clear()
+                # self.movement_lock.release()
+                # self.full.clear()
 
                 self.android_msgs.put(InfoMessage("Commands queue finished."))
                 self.android_msgs.put(StatusMessage(RobotStatus.FINISH))
@@ -371,8 +375,6 @@ class RpiModule:
                 self.command_queue.put(command)
 
             self.android_msgs.put(InfoMessage("Retrieved shortest path from server. Robot is ready to move"))
-            self.start_movement.set()
-            self.full.set()
 
     def translate_robot(self, command:str):
         """

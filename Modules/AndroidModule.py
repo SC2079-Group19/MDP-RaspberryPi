@@ -60,6 +60,10 @@ class AndroidModule:
 
     def send(self, message:AndroidMessage):
         try:
+            #if len(msg) < 512:
+            #for x in range(stm_message_len - len(msg)):
+                #msg += ' '
+            #raw_byte = (msg).encode("utf-8")
             self.client_sock.send(f"{message.json}\n".encode("utf-8"))
             logging.debug(f"[AndroidModule]Sent message to android: {message.json}")
         

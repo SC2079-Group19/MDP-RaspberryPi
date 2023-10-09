@@ -1,5 +1,6 @@
 from enum import Enum
 import logging
+import time
 
 class RobotStatus(Enum):
     READY = 1
@@ -85,3 +86,6 @@ def TranslateCommand(command : str, current_direction : int):
     else:
         logging.debug(f"[command]Unhandled command:{command}")
     return 0, 0, current_direction
+
+def current_milli_time():
+    return round(time.time() * 1000)

@@ -12,7 +12,7 @@ import queue
 import time
 
 from config import stm_command_prefixes, server_url, server_port
-from helper import RobotStatus, Direction
+from helper import RobotStatus, Direction, current_milli_time
 if StartAndroid:
     from Modules.AndroidModule import AndroidModule
 from Modules.AndroidMessages import AndroidMessage, InfoMessage, RobotLocMessage, \
@@ -51,7 +51,6 @@ class RpiModule:
 
         self.handle_android_msgs_process = None
         self.send_android_msgs_process = None
-        self.handle_stm_msgs_process = None
         self.handle_commands_process = None
 
         self.robot_location["x"] = 1
@@ -78,9 +77,7 @@ class RpiModule:
         if StartAndroid:
             self.spawn_android_processes()
         if StartSTM:
-            self.handle_stm_msgs_process = Process(target=self.handle_stm_messages)
-            self.handle_commands_process = Process(target=self.handle_commands)
-            self.handle_stm_msgs_process.start()
+            self.handle_commands_process = Process(target=self.stm_message_handler)
             self.handle_commands_process.start()
 
         logging.info("[RpiModule.initialize]Processes started")
@@ -111,113 +108,106 @@ class RpiModule:
 
                 self.clear_queues()
                 
-                # To reset gyroscope
-                #self.command_queue.put("RS00") # ack_count = 1
-
-                # Try to identify direction before moving
-                img_name = f"{time.time()}_first_far"
-                save_path = self.camera.capture(img_name)
-                img_data = self.server.predict_image(save_path)
-
                 # To move until obstacle is reached
-                self.command_queue.put("DT10") # ack_count = 2
-                
-                if img_data["image_label"] == "Left":
-                    self.command_queue.put("FL00") # ack_count = 3
-                    self.command_queue.put("FR00") # ack_count = 4
-                    self.command_queue.put("FW10") # ack_count = 5
-                elif img_data["image_label"] == "Right":
-                    self.command_queue.put("FR00") # ack_count = 3
-                    self.command_queue.put("FL00") # ack_count = 4
-                    self.command_queue.put("FW10") # ack_count = 5
-                else:
-                    self.near_flag.set() # need to take again when closer to image
+                self.command_queue.put("SNAPCHECK_11")
+                self.command_queue.put("DT10")
 
                 self.android_msgs.put(InfoMessage("Processed Start Command"))
 
-    def handle_stm_messages(self):
-        while True:
+    def wait_for_ack(self, timeout = 2):#by default stmModule timeout @ 2s
+        logging.debug('[RpiModule.wait_for_ack]Waiting for ACK')
+        init_time = current_milli_time()
+        while current_milli_time() < (init_time + timeout):
             msg:str = self.stm.receive()
-
             if msg is None:
                 continue
-
-            if not "ACK" in msg or len(msg) <= 0:
+            elif not "ACK" in msg or len(msg) <= 0:
                 continue
-            
-            self.ack_count += 1
-            logging.debug(f"[RpiModule.handle_stm_messages]ACK count: {self.ack_count}")
+            return True
+        return False
+    
+    def stm_message_handler(self):
+        while True:
+            logging.debug("[RpiModule.stm_message_handler]Waiting for start_movement")
+            self.start_movement.wait()
+            self.stm_handle_command_list()
+            self.start_movement.clear()
+    
 
+    def stm_handle_command_list(self):
+        while True:
             try:
-                self.movement_lock.release()
-            except Exception:
-                logging.warning("[RpiModule.handle_stm_messages]Tried to release a released lock!")
-
-            if self.ack_count == 2: # Robot reached first obstacle
-                if self.near_flag.is_set(): # need to take image again
-                    img_name = f"{time.time()}_first_near"
+                command:str = self.command_queue.get()
+                logging.debug(f"[RpiModule.stm_handle_command_list]Command: {command}")
+            except queue.Empty:
+                return False
+            except EOFError:
+                return False
+            #logging.log('[RpiModule.stm_handle_command_list]Processing {command}')
+            if command.startswith(stm_command_prefixes):
+                self.stm.send(command)
+                self.wait_for_ack(10000) #wait for 10s max
+            elif 'SNAP' in command:
+                index = command.index('_')
+                type = int(command[index + 1: index + 2])
+                is_near = int(command[index + 2: index + 3])
+                if type == 1:
+                    img_name = f"{time.time()}_first_far"
                     save_path = self.camera.capture(img_name)
                     img_data = self.server.predict_image(save_path)
-
                     if img_data["image_label"] == "Left":
                         self.command_queue.put("FL00") # ack_count = 3
                         self.command_queue.put("FR00") # ack_count = 4
                         self.command_queue.put("FW10") # ack_count = 5
-                    # By default, go right
-                    else:
+                        self.command_queue.put("SNAPCHECK_21")
+                    elif img_data["image_label"] == "Right":
                         self.command_queue.put("FR00") # ack_count = 3
                         self.command_queue.put("FL00") # ack_count = 4
                         self.command_queue.put("FW10") # ack_count = 5
-
-                    self.near_flag.clear() # resets the near_flag
-
-            if self.ack_count == 5:  # Robot crossed first obstacle
-                img_name = f"{time.time()}_second_far"
-                save_path = self.camera.capture(img_name)
-                img_data = self.server.predict_image(save_path)
-
-                # To move until obstacle is reached
-                self.command_queue.put("DT10") # ack_count = 6
-
-                if img_data["image_label"] == "Left":
-                    self.command_queue.put("FL00") # ack_count = 7
-                    self.command_queue.put("FW30") # ack_count = 8
-                    self.command_queue.put("FR00") # ack_count = 9
-                    self.command_queue.put("FW10") # ack_count = 10
-                    self.second_direction = img_data["image_label"]
-                elif img_data["image_label"] == "Right":
-                    self.command_queue.put("FR00") # ack_count = 7
-                    self.command_queue.put("FW30") # ack_count = 8
-                    self.command_queue.put("FL00") # ack_count = 9
-                    self.command_queue.put("FW10") # ack_count = 10
-                    self.second_direction = img_data["image_label"]
-                else:
-                    self.near_flag.set() # need to take again when closer to image
-
-            elif self.ack_count == 6: # Robot reached second obstacle
-                if self.near_flag.is_set(): # need to take image again
-                    img_name = f"{time.time()}_second_near"
+                        self.command_queue.put("SNAPCHECK_21")
+                    else:
+                        if is_near == 1:
+                            self.command_queue.put("SNAPCHECK_12")
+                        else:# By default, go right
+                            self.command_queue.put("FR00") # ack_count = 3
+                            self.command_queue.put("FL00") # ack_count = 4
+                            self.command_queue.put("FW10") # ack_count = 5
+                            self.command_queue.put("SNAPCHECK_21")
+                elif type == 2:
+                    img_name = f"{time.time()}_second_far"
                     save_path = self.camera.capture(img_name)
                     img_data = self.server.predict_image(save_path)
 
+                    if is_near == 1:# To move until obstacle is reached
+                        self.command_queue.put("DT10") # ack_count = 6
                     if img_data["image_label"] == "Left":
                         self.command_queue.put("FL00") # ack_count = 7
                         self.command_queue.put("FW30") # ack_count = 8
                         self.command_queue.put("FR00") # ack_count = 9
                         self.command_queue.put("FW10") # ack_count = 10
-                    # By default, go right
-                    else:
+                        self.command_queue.put("BASE_1")
+                        self.second_direction = img_data["image_label"]
+                    elif img_data["image_label"] == "Right":
                         self.command_queue.put("FR00") # ack_count = 7
                         self.command_queue.put("FW30") # ack_count = 8
                         self.command_queue.put("FL00") # ack_count = 9
                         self.command_queue.put("FW10") # ack_count = 10
-
-                    self.second_direction = img_data["image_label"]
-
-                    self.near_flag.clear() # resets the near_flag
-            
-            elif self.ack_count == 10: # Robot crossed second obstacle
-                if self.second_direction == "Left":
+                        self.command_queue.put("BASE_2")
+                        self.second_direction = img_data["image_label"]
+                    else:
+                        if is_near == 1:
+                            self.command_queue.put("SNAPCHECK_22")
+                        else:# By default, go right
+                            self.command_queue.put("FR00") # ack_count = 7
+                            self.command_queue.put("FW30") # ack_count = 8
+                            self.command_queue.put("FL00") # ack_count = 9
+                            self.command_queue.put("FW10") # ack_count = 10
+                            self.command_queue.put("BASE_2")
+                        self.second_direction = img_data["image_label"]
+            elif 'BASE' in command:
+                index = command.index('_')
+                type = int(command[index + 1: index + 2])
+                if type == 1:
                     self.command_queue.put("FR00")
                     self.command_queue.put("FW60")
                     self.command_queue.put("FR00")
@@ -228,7 +218,6 @@ class RpiModule:
                     # Move until inside parking lot
                     self.command_queue.put("DT10")
                     self.command_queue.put("FIN")
-                
                 else:
                     self.command_queue.put("FL00")
                     self.command_queue.put("FW60")
@@ -241,39 +230,11 @@ class RpiModule:
                     self.command_queue.put("DT10")
                     self.command_queue.put("FIN")
 
-    def handle_commands(self):
-        while True:
-            try:
-                command:str = self.command_queue.get()
-                logging.debug(f"[RpiModule.handle_commands]Command: {command}")
-            except queue.Empty:
-                continue
-            except EOFError:
-                continue
-
-            # Wait until path has been calculated
-            logging.debug("[RpiModule.handle_commands]Waiting for start_movement")
-            self.start_movement.wait()
-
-            # Movement Lock is needed to move and take pictures
-            logging.debug("[RpiModule.handle_commands]Waiting for movement_lock")
-            self.movement_lock.acquire()
-
-            if command.startswith(stm_command_prefixes):
-                #logging.info("[RpiModule.handle_commands]Inside send")
-                self.stm.send(command)
-
             elif command == "FIN":
-                self.start_movement.clear()
-                self.movement_lock.release()
                 self.android_msgs.put(InfoMessage("Commands queue finished."))
                 self.android_msgs.put(InfoMessage(RobotStatus.FINISH))
-
             else:
-                logging.warning(f"[RpiModule.handle_commands]Unknown command: {command}")
-            
-            # release the lock after processing command
-            self.movement_lock.release()
+                logging.warning(f"[RpiModule.stm_handle_command_list]Unknown command: {command}")
 
     def send_android_messages(self):
         while True:
@@ -309,7 +270,6 @@ class RpiModule:
             self.send_android_msgs_process.join()
         if StartSTM:
             self.stm.disconnect()
-            self.handle_stm_msgs_process.join()
             self.handle_commands_process.join()
 
         logging.info("[RpiModule.terminate]Processes joined")
@@ -400,21 +360,15 @@ class RpiModule:
             if not self.handle_commands_process.is_alive():
                 logging.debug('[RpiModule.check_processes_if_running]handle_commands_process might have crashed, restarting')
                 self.handle_commands_process.join()
-                self.handle_commands_process = Process(target=self.handle_commands)
+                self.handle_commands_process = Process(target=self.stm_message_handler)
                 self.handle_commands_process.start()
         
-            if not self.handle_stm_msgs_process.is_alive():
-                logging.debug('[RpiModule.check_processes_if_running]handle_stm_msgs_process might have crashed, restarting')
-                self.handle_stm_msgs_process.join()
-                self.handle_stm_msgs_process = Process(target=self.handle_stm_messages)
-                self.handle_stm_msgs_process.start()
         if StartAndroid:
             if not self.handle_android_msgs_process.is_alive():
                 logging.debug('[RpiModule.check_processes_if_running]handle_android_msgs_process might have crashed, restarting')
                 self.handle_android_msgs_process.join()
                 self.handle_android_msgs_process = Process(target=self.handle_android_messages)
                 self.handle_android_msgs_process.start()
-
 
 if __name__ == "__main__":
     rpi = RpiModule()

@@ -231,6 +231,7 @@ class RpiModule:
                     self.command_queue.put("FIN")
 
             elif command == "FIN":
+                self.server.stitch_images()
                 self.android_msgs.put(InfoMessage("Commands queue finished."))
                 self.android_msgs.put(InfoMessage(RobotStatus.FINISH))
             else:

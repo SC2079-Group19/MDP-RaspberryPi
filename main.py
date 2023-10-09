@@ -303,7 +303,7 @@ class RpiModule:
                 # self.empty.clear()
                 # self.movement_lock.release()
                 # self.full.clear()
-
+                self.server.stitch_images()
                 self.android_msgs.put(InfoMessage("Commands queue finished."))
                 self.android_msgs.put(StatusMessage(RobotStatus.FINISH))
 

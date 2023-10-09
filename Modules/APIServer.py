@@ -49,6 +49,17 @@ class APIServer:
         logging.debug(f"{res_data['data']}")
         return res_data['data']
     
+    def stitch_images(self):
+        res = requests.get(f"{self.url}/stitch")
+
+        if res.status_code != 200:
+            logging.warning(f"[APIServer]There was an error when requesting to server. Status Code: {res.status_code}")
+            return
+        
+        content = res.content
+
+        logging.info(f"[APIServer]{content}")
+    
 
 if __name__ == "__main__":
     pass

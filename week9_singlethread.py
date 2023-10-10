@@ -16,7 +16,7 @@ from helper import RobotStatus, Direction, current_milli_time
 if StartAndroid:
     from Modules.AndroidModule import AndroidModule
 from Modules.AndroidMessages import AndroidMessage, InfoMessage, RobotLocMessage, \
-    ImageMessage, BluetoothHeader
+    ImageMessage, BluetoothHeader, StatusMessage
 if StartCamera:
     from Modules.CameraModule import CameraModule
 
@@ -111,7 +111,7 @@ class RpiModule:
                 # To move until obstacle is reached
                 self.command_queue.put("SNAPCHECK_11")
                 self.command_queue.put("DT30")
-
+                self.start_movement.set()
                 self.android_msgs.put(InfoMessage("Processed Start Command"))
 
     def wait_for_ack(self, timeout = 2):#by default stmModule timeout @ 2s
@@ -160,14 +160,16 @@ class RpiModule:
                         self.command_queue.put("FL30") 
                         self.command_queue.put("FL30")
                         self.command_queue.put("FR30")
-                        self.command_queue.put("SNAPCHECK_21")
+                        #self.command_queue.put('FIN')
+                        #self.command_queue.put("SNAPCHECK_21")
 
                     if img_data["image_label"] == "Left":
                         self.command_queue.put("FL30") 
                         self.command_queue.put("FR30") 
                         self.command_queue.put("FR30")
                         self.command_queue.put("FL30")
-                        self.command_queue.put("SNAPCHECK_21")
+                        #self.command_queue.put('FIN')
+                        #self.command_queue.put("SNAPCHECK_21")
                     elif img_data["image_label"] == "Right":
                         QueueGoRight()
                     else:
@@ -232,8 +234,9 @@ class RpiModule:
 
             elif command == "FIN":
                 self.server.stitch_images()
+                self.start_movement.clear()
                 self.android_msgs.put(InfoMessage("Commands queue finished."))
-                self.android_msgs.put(InfoMessage(RobotStatus.FINISH))
+                self.android_msgs.put(StatusMessage(RobotStatus.FINISH))
             else:
                 logging.warning(f"[RpiModule.stm_handle_command_list]Unknown command: {command}")
 

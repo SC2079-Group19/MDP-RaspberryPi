@@ -120,7 +120,7 @@ class RpiModule:
                 img_data = self.server.predict_image(save_path)
 
                 # To move until obstacle is reached
-                self.command_queue.put("DT10") # ack_count = 2
+                self.command_queue.put("DT30") # ack_count = 2
                 
                 if img_data["image_label"] == "Left":
                     self.command_queue.put("FL00") # ack_count = 3

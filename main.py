@@ -46,6 +46,7 @@ class RpiModule:
         self.movement_lock = self._manager.Lock()
 
         self.start_movement = self._manager.Event()
+        self.manual_ctrl = self._manager.Event()
         self.empty = self._manager.Event()
         self.full = self._manager.Event()
 
@@ -184,6 +185,7 @@ class RpiModule:
                 self.path_queue.put(self.robot_location)
 
                 self.start_movement.set()
+                self.manual_ctrl.set()
                 self.full.set()
                 self.movement_lock.release()
                       
@@ -299,7 +301,7 @@ class RpiModule:
                 self.movement_lock.release()
 
             elif command == "FIN":
-                # self.start_movement.clear()
+                self.start_movement.clear()
                 # self.empty.clear()
                 # self.movement_lock.release()
                 # self.full.clear()
@@ -309,6 +311,9 @@ class RpiModule:
 
             else:
                 logging.warning(f"[RpiModule.handle_commands]Unknown command: {command}")
+            if self.manual_ctrl.is_set():
+                self.manual_ctrl.clear()
+                self.start_movement.clear()
 
     def check_server(self):
         """

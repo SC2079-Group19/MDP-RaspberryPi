@@ -84,7 +84,7 @@ def TranslateCommand(command : str, current_direction : int):
         elif current_direction == Direction.WEST.value:
             return -3, 1, Direction.NORTH.value
     else:
-        logging.debug(f"[command]Unhandled command:{command}")
+        logging.debug(f"[TranslateCommand]Unhandled command:{command}")
     return 0, 0, current_direction
 
 def current_milli_time():

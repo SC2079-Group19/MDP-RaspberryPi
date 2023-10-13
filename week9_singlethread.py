@@ -110,7 +110,7 @@ class RpiModule:
                 
                 # To move until obstacle is reached
                 self.command_queue.put("SNAPCHECK_11")
-                self.command_queue.put("DT10")
+                self.command_queue.put("DT20")
 
                 self.android_msgs.put(InfoMessage("Processed Start Command"))
 
@@ -143,10 +143,12 @@ class RpiModule:
                 return False
             except EOFError:
                 return False
+            
             #logging.log('[RpiModule.stm_handle_command_list]Processing {command}')
             if command.startswith(stm_command_prefixes):
                 self.stm.send(command)
                 self.wait_for_ack(10000) #wait for 10s max
+
             elif 'SNAP' in command:
                 index = command.index('_')
                 type = int(command[index + 1: index + 2])
@@ -155,55 +157,51 @@ class RpiModule:
                     img_name = f"{time.time()}_first_far"
                     save_path = self.camera.capture(img_name)
                     img_data = self.server.predict_image(save_path)
+
                     if img_data["image_label"] == "Left":
-                        self.command_queue.put("FL00") # ack_count = 3
-                        self.command_queue.put("FR00") # ack_count = 4
-                        self.command_queue.put("FW10") # ack_count = 5
+                        self.command_queue.put("TA01")
                         self.command_queue.put("SNAPCHECK_21")
+
                     elif img_data["image_label"] == "Right":
-                        self.command_queue.put("FR00") # ack_count = 3
-                        self.command_queue.put("FL00") # ack_count = 4
-                        self.command_queue.put("FW10") # ack_count = 5
+                        self.command_queue.put("TA02")
                         self.command_queue.put("SNAPCHECK_21")
+
                     else:
                         if is_near == 1:
                             self.command_queue.put("SNAPCHECK_12")
+
                         else:# By default, go right
-                            self.command_queue.put("FR00") # ack_count = 3
-                            self.command_queue.put("FL00") # ack_count = 4
-                            self.command_queue.put("FW10") # ack_count = 5
+                            self.command_queue.put("TA02")
                             self.command_queue.put("SNAPCHECK_21")
+
                 elif type == 2:
                     img_name = f"{time.time()}_second_far"
                     save_path = self.camera.capture(img_name)
                     img_data = self.server.predict_image(save_path)
 
                     if is_near == 1:# To move until obstacle is reached
-                        self.command_queue.put("DT10") # ack_count = 6
+                        self.command_queue.put("DT20") # ack_count = 6
+
                     if img_data["image_label"] == "Left":
-                        self.command_queue.put("FL00") # ack_count = 7
-                        self.command_queue.put("FW30") # ack_count = 8
-                        self.command_queue.put("FR00") # ack_count = 9
-                        self.command_queue.put("FW10") # ack_count = 10
+                        self.command_queue.put("TB01")
                         self.command_queue.put("BASE_1")
                         self.second_direction = img_data["image_label"]
+
                     elif img_data["image_label"] == "Right":
-                        self.command_queue.put("FR00") # ack_count = 7
-                        self.command_queue.put("FW30") # ack_count = 8
-                        self.command_queue.put("FL00") # ack_count = 9
-                        self.command_queue.put("FW10") # ack_count = 10
+                        self.command_queue.put("TB02")
                         self.command_queue.put("BASE_2")
                         self.second_direction = img_data["image_label"]
+
                     else:
                         if is_near == 1:
                             self.command_queue.put("SNAPCHECK_22")
+
                         else:# By default, go right
-                            self.command_queue.put("FR00") # ack_count = 7
-                            self.command_queue.put("FW30") # ack_count = 8
-                            self.command_queue.put("FL00") # ack_count = 9
-                            self.command_queue.put("FW10") # ack_count = 10
+                            self.command_queue.put("TB02")
                             self.command_queue.put("BASE_2")
+
                         self.second_direction = img_data["image_label"]
+                        
             elif 'BASE' in command:
                 index = command.index('_')
                 type = int(command[index + 1: index + 2])

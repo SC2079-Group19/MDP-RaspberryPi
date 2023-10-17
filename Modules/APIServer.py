@@ -48,7 +48,28 @@ class APIServer:
         logging.debug("[APIServer]Successfully queried path")
         logging.debug(f"{res_data['data']}")
         return res_data['data']
+
+
+    # For task 2
+    def calibrate_robot(self, img_path:str):
+        if not os.path.exists(img_path):
+            # Image does not exist in path
+            logging.warn(f"[APIServer]{img_path} does not exist!")
+            return None
+
+        img = open(img_path, 'rb')
+        img_name = os.path.basename(img_path)
+
+        res = requests.post(f"{self.url}/calibrate", files={"file": (img_name, img)})
+        try:
+            command_data = res.json()
+            logging.debug(f"[APIServer]Calibration Commands are: {command_data['Command']}")
+            return command_data["Command"]
+        except Exception as e:
+            logging.warning(f"[APIServer]Error when calibrating robot: {e}")
+            return None
     
+
     def stitch_images(self):
         res = requests.get(f"{self.url}/stitch")
 

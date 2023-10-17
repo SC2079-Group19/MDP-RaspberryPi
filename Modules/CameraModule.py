@@ -21,7 +21,7 @@ class CameraModule:
     def capture(self, name:str):
         camera = PiCamera()
         camera.resolution = resolution
-        sleep(self._warmup_time)
+        # sleep(self._warmup_time)
 
         if not os.path.exists(self._save_folder):
             os.makedirs(self._save_folder)

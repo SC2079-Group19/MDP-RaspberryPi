@@ -11,7 +11,7 @@ import requests
 import queue
 import time
 
-from config import stm_command_prefixes, server_url, server_port
+from config import stm_command_prefixes, server_url, server_port, OBSTACLE_WIDTH
 from helper import RobotStatus, Direction, current_milli_time
 if StartAndroid:
     from Modules.AndroidModule import AndroidModule
@@ -61,24 +61,25 @@ class RpiModule:
         self.near_flag = self._manager.Event()
         self.second_direction = None
 
+        self.distance_traveled = 0
+
 
     def initialize(self):
         if StartAndroid:
             self.android.connect()
+            
         if StartSTM:
             if not self.stm.connect():
                 logging.warning("[RpiModule.initialize]STM serial connection failed!")
                 return False
+            self.handle_commands_process = Process(target=self.stm_message_handler)
+            self.handle_commands_process.start()
+            
         if CheckSvr:
             self.check_server()
-        #if StartCamera:
-            #self.check_camera()
 
         if StartAndroid:
             self.spawn_android_processes()
-        if StartSTM:
-            self.handle_commands_process = Process(target=self.stm_message_handler)
-            self.handle_commands_process.start()
 
         logging.info("[RpiModule.initialize]Processes started")
         return True
@@ -110,7 +111,6 @@ class RpiModule:
                 
                 # To move until obstacle is reached
                 self.command_queue.put("SNAPCHECK_11")
-                self.command_queue.put("DT30")
                 self.start_movement.set()
                 self.android_msgs.put(InfoMessage("Processed Start Command"))
 
@@ -133,7 +133,6 @@ class RpiModule:
             self.stm_handle_command_list()
             self.start_movement.clear()
     
-
     def stm_handle_command_list(self):
         while True:
             try:
@@ -160,16 +159,25 @@ class RpiModule:
                     img_data = self.server.predict_image(save_path)
                     
                     def QueueGoRight():
+                        self.command_queue.put("DT25")
                         self.command_queue.put("TA01")
+                        self.command_queue.put("SNAPCHECK_21")
+
+                    def QueueGoLeft():
+                        self.command_queue.put("DT25")
+                        self.command_queue.put("TA02")
+                        self.command_queue.put("SNAPCHECK_21")
 
                     if img_data["image_label"] == "Left":
-                        self.command_queue.put("TA02")
+                        QueueGoLeft()
 
                     elif img_data["image_label"] == "Right":
                         QueueGoRight()
 
                     else:
                         if is_near == 1:
+                            # Distance is probably very far, move forward before re-capturing
+                            self.command_queue("DT25")
                             self.command_queue.put("SNAPCHECK_12")
 
                         else:# By default, go right
@@ -181,51 +189,55 @@ class RpiModule:
                     img_data = self.server.predict_image(save_path)
 
                     def QueueGoRight():
+                        self.command_queue.put("DT25")
                         self.command_queue.put("TB01")
+                        self.command_queue.put("BASE")
                         self.second_direction = img_data["image_label"]
 
-                    if is_near == 1:# To move until obstacle is reached
-                        self.command_queue.put("DT30") 
+                    def QueueGoLeft():
+                        self.command_queue.put("DT25")
+                        self.command_queue.put("TB02")
+                        self.command_queue.put("BASE")
+                        self.second_direction = img_data["image_label"]
 
                     if img_data["image_label"] == "Left":
-                        self.command_queue.put("TB02")
-                        self.second_direction = img_data["image_label"]
+                        QueueGoLeft()
 
                     elif img_data["image_label"] == "Right":
                         QueueGoRight()
 
                     else:
                         if is_near == 1:
+                            # Distance is probably very far, move forward before re-capturing
+                            self.command_queue.put("DT25")
                             self.command_queue.put("SNAPCHECK_22")
 
                         else:# By default, go right
                             QueueGoRight()
                             
             elif 'BASE' in command:
-                index = command.index('_')
-                type = int(command[index + 1: index + 2])
-                if type == 1:
-                    self.command_queue.put("FR00")
-                    self.command_queue.put("FW60")
-                    self.command_queue.put("FR00")
-                    # Move until right side barrier of parking lot
-                    self.command_queue.put("DT10")
-                    self.command_queue.put("FR00")
-                    self.command_queue.put("FL00")
-                    # Move until inside parking lot
-                    self.command_queue.put("DT10")
-                    self.command_queue.put("FIN")
+                # Navigate past first obstacle
+                if self.second_direction == "Left":
+                    self.command_queue.put("GH")
+                    self.command_queue.put("FR30")
+                    self.command_queue.put("IC01")
+                    self.command_queue.put("BW10")
+                    self.command_queue.put("FL30")
+
                 else:
-                    self.command_queue.put("FL00")
-                    self.command_queue.put("FW60")
-                    self.command_queue.put("FL00")
-                    # Move until right side barrier of parking lot
-                    self.command_queue.put("DT10")
-                    self.command_queue.put("FL00")
-                    self.command_queue.put("FR00")
-                    # Move until inside parking lot
-                    self.command_queue.put("DT10")
-                    self.command_queue.put("FIN")
+                    self.command_queue.put("GH")
+                    self.command_queue.put("FL30")
+                    self.command_queue.put("IC02")
+                    self.command_queue.put("BW10")
+                    self.command_queue.put("FR30")
+                
+                # Calibrate robot before parking
+                save_path = self.camera.capture(img_name)
+                command = self.server.calibrate_robot(save_path)
+                self.command_queue.put("BW10")
+                self.command_queue.put(command)
+                self.command_queue.put("DT05")
+                self.command_queue.put("FIN")
 
             elif command == "FIN":
                 self.server.stitch_images()

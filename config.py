@@ -11,9 +11,9 @@ serial_port = "/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Cont
 baud_rate = 115200
 stm_message_len = 5
 stm_command_prefixes = ("FS", "BS", "FW", "BW", "FL", "FR", "BL",
-                        "BR", "TL", "TR", "A", "C", "DT", "STOP", "ZZ", 
-                        "RS", "BA", "BC", "FA", "FC", "TA", "TB", "IR", "TD",
-                        "IC")
+                        "BR", "TL", "TR", "DT", "BA", "BC", "FA", 
+                        "FC", "TA", "TB", "IR", "TD", "IC", "GH", 
+                        "AM", "DZ")
 
 # Image Recognition Configs
 server_url = "192.168.19.17" # to be changed
@@ -21,3 +21,4 @@ server_port = "5000"
 
 # Task 2 Configs
 OBSTACLE_WIDTH = 10
+IS_OUTSIDE = True

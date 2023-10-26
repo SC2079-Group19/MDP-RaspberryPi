@@ -11,7 +11,7 @@ import requests
 import queue
 import time
 
-from config import stm_command_prefixes, server_url, server_port, OBSTACLE_WIDTH
+from config import stm_command_prefixes, server_url, server_port, OBSTACLE_WIDTH, IS_OUTSIDE
 from helper import RobotStatus, Direction, current_milli_time
 if StartAndroid:
     from Modules.AndroidModule import AndroidModule
@@ -146,7 +146,7 @@ class RpiModule:
             #logging.log('[RpiModule.stm_handle_command_list]Processing {command}')
             if command.startswith(stm_command_prefixes):
                 self.stm.send(command)
-                self.wait_for_ack(10000) #wait for 10s max
+                self.wait_for_ack(60000) #wait for 10s max
 
             elif 'SNAP' in command:
                 index = command.index('_')
@@ -156,49 +156,27 @@ class RpiModule:
                 if type == 1:
                     img_name = f"{time.time()}_first_far"
                     save_path = self.camera.capture(img_name)
-                    img_data = self.server.predict_image(save_path)
-                    
-                    def QueueGoRight():
-                        self.command_queue.put("DT25")
-                        self.command_queue.put("TA01")
-                        self.command_queue.put("SNAPCHECK_21")
-
-                    def QueueGoLeft():
-                        self.command_queue.put("DT25")
-                        self.command_queue.put("TA02")
-                        self.command_queue.put("SNAPCHECK_21")
-
-                    if img_data["image_label"] == "Left":
-                        QueueGoLeft()
-
-                    elif img_data["image_label"] == "Right":
-                        QueueGoRight()
-
-                    else:
-                        if is_near == 1:
-                            # Distance is probably very far, move forward before re-capturing
-                            self.command_queue("DT25")
-                            self.command_queue.put("SNAPCHECK_12")
-
-                        else:# By default, go right
-                            QueueGoRight()
-
-                elif type == 2:
-                    img_name = f"{time.time()}_second_far"
-                    save_path = self.camera.capture(img_name)
-                    img_data = self.server.predict_image(save_path)
+                    img_data = self.server.predict_image(save_path, strict=(is_near==1))
 
                     def QueueGoRight():
-                        self.command_queue.put("DT25")
-                        self.command_queue.put("TB01")
-                        self.command_queue.put("BASE")
-                        self.second_direction = img_data["image_label"]
+                        if IS_OUTSIDE:
+                            self.command_queue.put("TA01")
+                            self.command_queue.put("SNAPCHECK_21")
+                            self.command_queue.put("AM01")
+                        else:
+                            self.command_queue.put("TA03")
+                            self.command_queue.put("SNAPCHECK_21")
+                            self.command_queue.put("AM03")
 
                     def QueueGoLeft():
-                        self.command_queue.put("DT25")
-                        self.command_queue.put("TB02")
-                        self.command_queue.put("BASE")
-                        self.second_direction = img_data["image_label"]
+                        if IS_OUTSIDE:
+                            self.command_queue.put("TA02")
+                            self.command_queue.put("SNAPCHECK_21")
+                            self.command_queue.put("AM02")
+                        else:
+                            self.command_queue.put("TA04")
+                            self.command_queue.put("SNAPCHECK_21")
+                            self.command_queue.put("AM04")
 
                     if img_data["image_label"] == "Left":
                         QueueGoLeft()
@@ -210,33 +188,61 @@ class RpiModule:
                         if is_near == 1:
                             # Distance is probably very far, move forward before re-capturing
                             self.command_queue.put("DT25")
+                            self.command_queue.put("SNAPCHECK_12")
+
+                        else:# By default, go right
+                            QueueGoRight()
+
+                elif type == 2:
+                    img_name = f"{time.time()}_second_far"
+                    save_path = self.camera.capture(img_name)
+                    img_data = self.server.predict_image(save_path, strict=(is_near==1))
+
+                    def QueueGoRight():
+                        if IS_OUTSIDE:
+                            self.command_queue.put("TB01")
+                            self.command_queue.put("GH01")
+                        else:
+                            self.command_queue.put("TB03")
+                            self.command_queue.put("GH03")
+
+                        self.command_queue.put("CALIBRATE")
+                        self.second_direction = img_data["image_label"]
+
+                    def QueueGoLeft():
+                        if IS_OUTSIDE:
+                            self.command_queue.put("TB02")
+                            self.command_queue.put("GH02")
+                        else:
+                            self.command_queue.put("TB04")
+                            self.command_queue.put("GH04")
+                            
+                        self.command_queue.put("CALIBRATE")
+                        self.second_direction = img_data["image_label"]
+
+                    if img_data["image_label"] == "Left":
+                        QueueGoLeft()
+
+                    elif img_data["image_label"] == "Right":
+                        QueueGoRight()
+
+                    else:
+                        if is_near == 1:
+                            # Distance is probably very far, move forward before re-capturing
+                            self.command_queue.put("DT30")
                             self.command_queue.put("SNAPCHECK_22")
 
                         else:# By default, go right
                             QueueGoRight()
                             
-            elif 'BASE' in command:
-                # Navigate past first obstacle
-                if self.second_direction == "Left":
-                    self.command_queue.put("GH")
-                    self.command_queue.put("FR30")
-                    self.command_queue.put("IC01")
-                    self.command_queue.put("BW10")
-                    self.command_queue.put("FL30")
-
-                else:
-                    self.command_queue.put("GH")
-                    self.command_queue.put("FL30")
-                    self.command_queue.put("IC02")
-                    self.command_queue.put("BW10")
-                    self.command_queue.put("FR30")
-                
+            elif 'CALIBRATE' in command:                
                 # Calibrate robot before parking
+                img_name = f"{time.time()}_calibrate"
                 save_path = self.camera.capture(img_name)
                 command = self.server.calibrate_robot(save_path)
-                self.command_queue.put("BW10")
-                self.command_queue.put(command)
-                self.command_queue.put("DT05")
+                if command:
+                    self.command_queue.put(command)
+                self.command_queue.put("DT15")
                 self.command_queue.put("FIN")
 
             elif command == "FIN":

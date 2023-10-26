@@ -14,13 +14,14 @@ class CameraModule:
     def __init__(self):
         self._save_folder = "./images/"
         self._warmup_time = warmup_time
+        self.resolution = resolution
         
         logging.info(f"[CameraModule]Camera Module initialized with {resolution} resolution and " + 
                 f"{self._warmup_time}s warm up time")
 
     def capture(self, name:str):
         camera = PiCamera()
-        camera.resolution = resolution
+        camera.resolution = self.resolution
         # sleep(self._warmup_time)
 
         if not os.path.exists(self._save_folder):

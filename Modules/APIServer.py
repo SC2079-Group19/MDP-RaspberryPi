@@ -1,6 +1,7 @@
 import logging
 import requests
 import os
+import json
 
 from config import server_url, server_port
 
@@ -13,7 +14,7 @@ class APIServer:
         res = requests.get(self.url, timeout=1)
         return res.status_code
 
-    def predict_image(self, img_path:str):
+    def predict_image(self, img_path:str, strict=False):
         if not os.path.exists(img_path):
             # Image does not exist in path
             logging.warn(f"[APIServer]{img_path} does not exist!")
@@ -22,7 +23,18 @@ class APIServer:
         img = open(img_path, 'rb')
         img_name = os.path.basename(img_path)
 
-        res = requests.post(f"{self.url}/predict", files={"file": (img_name, img)})
+        res = requests.post(
+            f"{self.url}/predict", 
+            files={
+                "file": (img_name, img),
+                "json_data": (
+                    'j', 
+                    json.dumps({ "strict": strict }), 
+                    'application/json'
+                ) 
+            }, 
+        )
+        
         try:
             img_data = res.json()
             logging.debug(f"[APIServer]Image {img_name} is predicted to be {img_data['image_label']}")
